@@ -151,6 +151,8 @@ cython_debug/
 .history/
 
 # Local data
+privacy_schedule_agent/data/*.db
+privacy_schedule_agent/data/*.sqlite
 data/*.db
 data/*.sqlite
 data/*.log

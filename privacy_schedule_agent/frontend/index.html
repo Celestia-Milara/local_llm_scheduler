@@ -7,7 +7,9 @@
     <script src="/assets/tailwind.js"></script>
     <script src="/assets/vue.global.prod.js"></script>
     <script src="/assets/axios.min.js"></script>
+    <script src="/assets/calendar_utils.js"></script>
     <style>
+        
         .terminal-text { font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace; }
         .dark-bg { background-color: #0f172a; }
         .chat-container::-webkit-scrollbar { width: 4px; }
@@ -24,11 +26,11 @@
     <!-- Header -->
     <header class="border-b border-slate-700 p-4 flex justify-between items-center bg-slate-900/50 backdrop-blur-md">
         <h1 class="text-xl font-bold flex items-center gap-2">
-            <span class="text-indigo-400">&#x1F6E1;&#xFE0F;</span> 隐私日程助理 <span class="text-xs bg-slate-700 px-2 py-1 rounded text-slate-400 font-normal">v2.0 (Local-LLM)</span>
+            <span class="text-indigo-400">🛡️</span> 隐私日程助理 <span class="text-xs bg-slate-700 px-2 py-1 rounded text-slate-400 font-normal">v2.0 (Local-LLM)</span>
         </h1>
         <div class="flex items-center gap-4">
             <span class="text-sm text-slate-400">Session: <span class="text-indigo-400">{{ sessionId }}</span></span>
-            <button @click="fetchSchedules" class="p-2 hover:bg-slate-700 rounded-full transition-colors" title="刷新日程">
+            <button @click="fetchMonthSchedules" class="p-2 hover:bg-slate-700 rounded-full transition-colors" title="刷新日程">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
                 </svg>
@@ -38,8 +40,33 @@
 
     <!-- Main Content -->
     <main class="flex flex-1 overflow-hidden">
-        <!-- Left: Chat Window (40%) -->
-        <section class="w-[40%] border-r border-slate-700 flex flex-col bg-slate-900/30">
+        <!-- Left: Calendar + Chat -->
+        <section class="w-[45%] border-r border-slate-700 flex flex-col bg-slate-900/30">
+            <!-- Calendar -->
+            <div class="p-4 border-b border-slate-700">
+                <div class="flex items-center justify-between mb-3">
+                    <button @click="prevMonth" class="text-slate-400 hover:text-slate-200">&#x2039;</button>
+                    <h3 class="text-sm tracking-widest text-slate-400 uppercase">
+                        {{ currentMonthLabel }}
+                    </h3>
+                    <button @click="nextMonth" class="text-slate-400 hover:text-slate-200">&#x203A;</button>
+                </div>
+                <div class="grid grid-cols-7 text-xs text-slate-500 mb-2">
+                    <div v-for="d in weekDays" :key="d" class="text-center">{{ d }}</div>
+                </div>
+                <div class="grid grid-cols-7 gap-1">
+                        <button v-for="cell in monthMatrix" :key="cell.dateKey"
+                            @click="selectDate(cell)"
+                            :class="['h-10 rounded-lg text-xs flex flex-col items-center justify-center',
+                              cell.inMonth ? 'text-slate-200' : 'text-slate-600',
+                              cell.dateKey === selectedDate ? 'bg-indigo-600/60' : 'hover:bg-slate-800']">
+                        <span>{{ cell.date.getDate() }}</span>
+                        <span v-if="hasEvents(cell.dateKey)" class="w-1 h-1 rounded-full bg-indigo-400 mt-0.5"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat -->
             <div class="flex-1 overflow-y-auto p-4 space-y-4 chat-container" id="chatWindow">
                 <div v-for="(msg, index) in messages" :key="index"
                      :class="['flex', msg.role === 'user' ? 'justify-end' : 'justify-start']">
@@ -48,7 +75,6 @@
                         <div class="text-sm prose prose-invert pre-wrap">{{ msg.content }}</div>
                     </div>
                 </div>
-                <!-- Loading Animation -->
                 <div v-if="loading" class="flex justify-start">
                     <div class="bg-slate-800 p-4 rounded-2xl flex items-center gap-2">
                         <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
@@ -72,10 +98,12 @@
             </div>
         </section>
 
-        <!-- Right: Schedule Dashboard (60%) -->
-        <section class="w-[60%] flex flex-col bg-slate-950">
+        <!-- Right: Schedule Dashboard -->
+        <section class="w-[55%] flex flex-col bg-slate-950">
             <div class="p-4 border-b border-slate-800 flex justify-between items-center">
-                <h2 class="font-semibold text-slate-400 tracking-wider text-sm uppercase">当前行程库</h2>
+                <h2 class="font-semibold text-slate-400 tracking-wider text-sm uppercase">
+                    {{ selectedDate }} 日程
+                </h2>
                 <div class="flex gap-2 text-xs">
                     <div class="flex items-center gap-1"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span> 正常</div>
                     <div class="flex items-center gap-1"><span class="w-2 h-2 bg-amber-500 rounded-full"></span> 冲突</div>
@@ -83,17 +111,16 @@
             </div>
             <div class="flex-1 overflow-y-auto p-6">
                 <div class="grid grid-cols-1 gap-4">
-                    <div v-for="item in schedules" :key="item.id"
+                    <div v-for="item in daySchedules" :key="item.id"
                          class="bg-slate-900 border border-slate-800 p-4 rounded-xl hover:border-slate-600 transition-all group">
                         <div class="flex items-start justify-between">
                             <div class="flex gap-4">
-                                <!-- Time Block -->
                                 <div class="flex flex-col items-center justify-center bg-slate-800 rounded-lg p-3 min-w-[70px]">
                                     <span class="text-xs text-slate-400">{{ item.start_time.split(' ')[0].split('-').slice(1).join('/') }}</span>
                                     <span class="font-bold text-lg text-indigo-400">{{ item.start_time.split(' ')[1].slice(0,5) }}</span>
                                 </div>
-                                <!-- Info Block -->
-                                <div>
+
+                                <div v-if="editingId !== item.id">
                                     <div class="flex items-center gap-2">
                                         <h3 class="font-bold text-lg text-slate-100">{{ item.title }}</h3>
                                         <span v-if="item.category"
@@ -111,8 +138,23 @@
                                     <p v-if="item.description" class="text-xs text-slate-500 mt-1">{{ item.description }}</p>
                                     <p class="text-xs text-slate-500 mt-1">结束于 {{ item.end_time.split(' ')[1].slice(0,5) }}</p>
                                 </div>
+
+                                <div v-else class="space-y-2">
+                                    <input v-model="editForm.title" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="标题" @keyup.enter="saveEdit" />
+                                    <div class="flex gap-2">
+                                        <input v-model="editForm.start_time" class="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="开始时间" @keyup.enter="saveEdit" />
+                                        <input v-model="editForm.end_time" class="flex-1 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="结束时间" @keyup.enter="saveEdit" />
+                                    </div>
+                                    <input v-model="editForm.location" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="地点" @keyup.enter="saveEdit" />
+                                    <input v-model="editForm.description" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="描述" @keyup.enter="saveEdit" />
+                                    <input v-model="editForm.category" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="分类" @keyup.enter="saveEdit" />
+                                    <div class="flex gap-2 pt-1">
+                                        <button @click="saveEdit" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1 rounded text-xs">保存</button>
+                                        <button @click="cancelEdit" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs">取消</button>
+                                    </div>
+                                </div>
                             </div>
-                            <!-- Status + Actions -->
+
                             <div class="flex items-center gap-2">
                                 <div v-if="item.status === 'conflicted'"
                                      class="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] px-2 py-1 rounded-full animate-pulse">
@@ -123,7 +165,12 @@
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                                     </svg>
                                 </div>
-                                <!-- Delete Button -->
+                                <button @click="startEdit(item)" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-indigo-400 transition-all p-1" title="编辑日程">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                                        <path fill-rule="evenodd" d="M2 15a2 2 0 002 2h12a1 1 0 100-2H4v-2a1 1 0 10-2 0v2z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
                                 <button @click="deleteSchedule(item.id, item.title)"
                                         class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all p-1"
                                         title="删除日程">
@@ -135,8 +182,8 @@
                         </div>
                     </div>
                 </div>
-                <div v-if="schedules.length === 0" class="h-full flex flex-col items-center justify-center text-slate-500 opacity-50 italic">
-                    <p>&#x2615; 暂无预定行程，何不添加一个？</p>
+                <div v-if="daySchedules.length === 0" class="h-full flex flex-col items-center justify-center text-slate-500 opacity-50 italic">
+                    <p>&#x2615; 当天暂无日程</p>
                 </div>
             </div>
         </section>
@@ -154,10 +201,21 @@
             </div>
         </div>
     </footer>
+
+    <!-- Conflict Toast -->
+    <div v-if="toastVisible" class="fixed right-6 bottom-6 bg-slate-900 border border-slate-700 shadow-lg rounded-xl p-4 w-80 z-50">
+        <div class="text-sm text-slate-200 mb-2">检测到冲突，推荐时段：</div>
+        <div class="space-y-2">
+            <button v-for="(s, i) in suggestedSlots" :key="i"
+                    class="w-full text-left text-xs bg-slate-800 hover:bg-slate-700 rounded px-2 py-1">
+                {{ s.start }} - {{ s.end }}
+            </button>
+        </div>
+    </div>
 </div>
 
 <script>
-    const { createApp, ref, onMounted, nextTick } = Vue;
+    const { createApp, ref, onMounted, nextTick, computed } = Vue;
 
     createApp({
         setup() {
@@ -166,9 +224,23 @@
             const messages = ref([
                 { role: 'assistant', content: '您好！我是您的隐私日程助理。由于日程数据存储在本地，我会确保您的隐私安全。有什么我可以帮您的吗？' }
             ]);
-            const schedules = ref([]);
             const terminalLogs = ref([]);
             const loading = ref(false);
+            const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+            const selectedDate = ref(CalendarUtils.toDateKey(new Date()));
+            const currentMonth = ref(new Date());
+            const monthMatrix = ref([]);
+            const monthEvents = ref([]);
+            const daySchedules = ref([]);
+            const editingId = ref(null);
+            const editForm = ref({ title: '', start_time: '', end_time: '', location: '', description: '', category: '' });
+            const toastVisible = ref(false);
+            const suggestedSlots = ref([]);
+
+            const currentMonthLabel = computed(() => {
+                const d = currentMonth.value;
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            });
 
             const addLog = (content, color) => {
                 const now = new Date().toLocaleTimeString();
@@ -179,15 +251,68 @@
                 });
             };
 
-            const fetchSchedules = async () => {
+            const refreshMonthMatrix = () => {
+                monthMatrix.value = CalendarUtils.getMonthMatrix(
+                    currentMonth.value.getFullYear(),
+                    currentMonth.value.getMonth()
+                ).flat();
+            };
+
+            const hasEvents = (dateKey) => {
+                return monthEvents.value.some((e) => e.start_time.startsWith(dateKey));
+            };
+
+            const setDaySchedules = (dateKey) => {
+                daySchedules.value = monthEvents.value.filter((e) => e.start_time.startsWith(dateKey));
+            };
+
+            const setCurrentMonthFromDate = (date) => {
+                currentMonth.value = new Date(date.getFullYear(), date.getMonth(), 1);
+            };
+
+            const selectDate = async (cellOrDateKey) => {
+                const cell = typeof cellOrDateKey === 'string' ? null : cellOrDateKey;
+                const dateKey = cell ? cell.dateKey : cellOrDateKey;
+                selectedDate.value = dateKey;
+                if (cell && !cell.inMonth) {
+                    setCurrentMonthFromDate(cell.date);
+                    await fetchMonthSchedules();
+                    return;
+                }
+                setDaySchedules(dateKey);
+            };
+
+            const fetchMonthSchedules = async () => {
                 addLog('Fetching schedules from database...', 'text-blue-400');
+                refreshMonthMatrix();
                 try {
-                    const res = await axios.get('/schedules');
-                    schedules.value = res.data;
-                    addLog('Success: Found ' + res.data.length + ' records', 'text-emerald-400');
+                    const range = CalendarUtils.getMonthRange(
+                        currentMonth.value.getFullYear(),
+                        currentMonth.value.getMonth()
+                    );
+                    const res = await axios.get(`/schedules?start=${range.start}&end=${range.end}`);
+                    monthEvents.value = res.data;
+                    setDaySchedules(selectedDate.value);
+                    addLog(`Success: Found ${res.data.length} records`, 'text-emerald-400');
                 } catch (err) {
+                    monthEvents.value = [];
+                    daySchedules.value = [];
                     addLog('Error: Failed to fetch schedules', 'text-red-400');
                 }
+            };
+
+            const prevMonth = async () => {
+                const d = new Date(currentMonth.value);
+                d.setMonth(d.getMonth() - 1);
+                currentMonth.value = d;
+                await fetchMonthSchedules();
+            };
+
+            const nextMonth = async () => {
+                const d = new Date(currentMonth.value);
+                d.setMonth(d.getMonth() + 1);
+                currentMonth.value = d;
+                await fetchMonthSchedules();
             };
 
             const deleteSchedule = async (id, title) => {
@@ -196,7 +321,7 @@
                 try {
                     await axios.delete('/schedules/' + id);
                     addLog('Deleted: ' + title, 'text-emerald-400');
-                    await fetchSchedules();
+                    await fetchMonthSchedules();
                 } catch (err) {
                     addLog('Error: Failed to delete - ' + (err.response?.data?.detail || err.message), 'text-red-400');
                 }
@@ -211,6 +336,50 @@
                 return map[category] || 'category-default';
             };
 
+            const startEdit = (item) => {
+                editingId.value = item.id;
+                editForm.value = {
+                    title: item.title,
+                    start_time: item.start_time,
+                    end_time: item.end_time,
+                    location: item.location || '',
+                    description: item.description || '',
+                    category: item.category || ''
+                };
+            };
+
+            const cancelEdit = () => {
+                editingId.value = null;
+            };
+
+            const saveEdit = async () => {
+                if (!editingId.value) return;
+                try {
+                    await axios.put('/schedules/' + editingId.value, editForm.value);
+                    addLog('Schedule updated: ' + editForm.value.title, 'text-emerald-400');
+                    editingId.value = null;
+                    await fetchMonthSchedules();
+                } catch (err) {
+                    addLog('Error: Failed to update - ' + (err.response?.data?.detail || err.message), 'text-red-400');
+                }
+            };
+
+            const showToast = (slots) => {
+                suggestedSlots.value = slots;
+                toastVisible.value = true;
+                setTimeout(() => { toastVisible.value = false; }, 8000);
+            };
+
+            const parseSuggestedSlots = (text) => {
+                const match = text.match(/\[\s*\{[^\]]+\}\s*\]/);
+                if (!match) return [];
+                try {
+                    const slots = JSON.parse(match[0]);
+                    if (Array.isArray(slots)) return slots;
+                } catch (e) {}
+                return [];
+            };
+
             const sendMessage = async () => {
                 if (!userInput.value.trim() || loading.value) return;
 
@@ -218,7 +387,7 @@
                 messages.value.push({ role: 'user', content: input });
                 userInput.value = '';
                 loading.value = true;
-
+                
                 addLog('User Prompt Sent: ' + input.substring(0, 30) + '...', 'text-slate-400');
                 addLog('Invoking LLM Engine (Qwen2.5:7b)...', 'text-amber-400');
 
@@ -236,7 +405,13 @@
                     messages.value.push({ role: 'assistant', content: res.data.response });
                     addLog('Engine Response Received.', 'text-emerald-400');
 
-                    await fetchSchedules();
+                    const slots = parseSuggestedSlots(res.data.response || '');
+                    if (slots.length) {
+                        showToast(slots);
+                    }
+
+                    // 每次聊天后刷新日程，因为可能添加了新内容
+                    await fetchMonthSchedules();
                 } catch (err) {
                     addLog('Engine Execution Failed: ' + err.message, 'text-red-500');
                     messages.value.push({ role: 'assistant', content: '抱歉，系统处理出错，请重试。' });
@@ -252,13 +427,18 @@
             onMounted(() => {
                 addLog('Privacy Agent Environment Ready.', 'text-green-500');
                 addLog('Local Database Connected: schedule.db', 'text-indigo-400');
-                fetchSchedules();
+                fetchMonthSchedules();
             });
 
             return {
-                userInput, sessionId, messages, schedules,
-                terminalLogs, loading, sendMessage, fetchSchedules,
-                deleteSchedule, getCategoryClass
+                userInput, sessionId, messages,
+                terminalLogs, loading, sendMessage,
+                weekDays, selectedDate, currentMonthLabel,
+                monthMatrix, daySchedules, hasEvents,
+                selectDate, prevMonth, nextMonth, fetchMonthSchedules,
+                deleteSchedule, getCategoryClass,
+                editingId, editForm, startEdit, cancelEdit, saveEdit,
+                toastVisible, suggestedSlots
             };
         }
     }).mount('#app');
