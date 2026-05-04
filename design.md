@@ -65,9 +65,13 @@
 | 字段名 | 类型 | 说明 |
 | :--- | :--- | :--- |
 | `id` | Integer | 主键 |
+| `user_id` | Integer | 用户标识（v3 新增，默认 1） |
 | `title` | String | 任务名称 |
 | `start_time` | DateTime | 任务起始时间 |
+| `end_time` | DateTime | 任务结束时间 |
 | `location_ref`| String | 地点标识（用于映射距离矩阵） |
+| `description` | Text | 日程描述（v2 新增，可选） |
+| `category` | String(30) | 日程分类（v2 新增，可选：工作/学习/生活） |
 | `status` | String | `confirmed` / `conflicted` |
 | `privacy_level`| Integer | 1: 公开, 2: 内部, 3: 绝密 |
 
@@ -95,7 +99,7 @@ v3.0 在前端架构与用户体验方面做了以下核心变更，详见 `docs
 | 维度 | v2 状态 | v3 变更 |
 | :--- | :--- | :--- |
 | 前端构建 | CDN 加载 | Vite + Vue SFC + Tailwind PostCSS |
-| 组件化 | 单文件 index.html (450行) | 14 个 .vue 组件，按职责拆分 |
+| 组件化 | 单文件 index.html (450行) | 17 个 .vue 组件，按职责拆分 |
 | 布局 | 左 45% 日历+对话，右 55% 列表 | 侧边栏(48px) + 工具栏 + 月视图主画布 + 可收起 AI 面板(320px) |
 | 用户体系 | 无 | root/root 前端登录，Schedule 表加 `user_id` 字段 |
 | AI 对话 | 固定左侧，始终可见 | 右侧面板，默认收起，按钮展开 |

@@ -57,7 +57,7 @@ privacy_schedule_agent/
 │   ├── src/                 # Vue SFC 组件
 │   │   ├── App.vue
 │   │   ├── main.js
-│   │   ├── components/      # 14 个组件（Sidebar, MonthView, AiPanel 等）
+│   │   ├── components/      # 17 个组件（Sidebar, MonthView, AiPanel, ScheduleCard 等）
 │   │   ├── composables/     # useAuth, useSchedules, useChat
 │   │   └── utils/calendar.js
 │   └── dist/                # 构建产物，由 FastAPI 托管
