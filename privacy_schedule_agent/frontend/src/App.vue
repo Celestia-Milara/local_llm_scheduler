@@ -4,7 +4,6 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
 import { useAuth } from './composables/useAuth.js'
 import LoginPage from './components/LoginPage.vue'
 import MainLayout from './components/MainLayout.vue'

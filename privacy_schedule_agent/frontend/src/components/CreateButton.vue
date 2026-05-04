@@ -33,7 +33,7 @@ const showDialog = ref(false)
 const form = reactive({ title: '', start_time: '', end_time: '', location: '' })
 
 async function handleCreate() {
-  await createSchedule(form.title, form.start_time, form.end_time, userId.value)
+  await createSchedule(form.title, form.start_time, form.end_time, form.location, userId.value)
   showDialog.value = false
   form.title = ''; form.start_time = ''; form.end_time = ''; form.location = ''
 }

@@ -39,11 +39,13 @@ export function useSchedules() {
     }
   }
 
-  async function createSchedule(title, startTime, endTime, userId = 1) {
+  async function createSchedule(title, startTime, endTime, location = '', userId = 1) {
     try {
       // 通过聊天接口让 LLM 处理新建
+      let msg = `添加日程：标题="${title}"，开始时间=${startTime}，结束时间=${endTime}`
+      if (location) msg += `，地点=${location}`
       await axios.post('/chat', {
-        message: `添加日程：标题="${title}"，开始时间=${startTime}，结束时间=${endTime}`,
+        message: msg,
         session_id: `user_${userId}`
       })
     } catch (e) {
