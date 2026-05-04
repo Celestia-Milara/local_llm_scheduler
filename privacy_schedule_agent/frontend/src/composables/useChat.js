@@ -30,7 +30,7 @@ export function useChat() {
   }
 
   function clearMessages() {
-    messages.value = []
+    messages.value.splice(0) // preserve ref, clear in-place
   }
 
   return { messages, loading, aiPanelVisible, sendMessage, togglePanel, clearMessages }
