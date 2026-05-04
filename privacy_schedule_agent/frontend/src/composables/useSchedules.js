@@ -6,6 +6,7 @@ const monthEvents = ref([])
 const selectedDate = ref(toDateKey(new Date()))
 const currentMonth = ref(new Date())
 const monthMatrix = ref([])
+const loading = ref(false)
 
 export function useSchedules() {
   function refreshMonthMatrix() {
@@ -24,6 +25,7 @@ export function useSchedules() {
   }
 
   async function fetchMonth(userId = 1) {
+    loading.value = true
     refreshMonthMatrix()
     const range = getMonthRange(
       currentMonth.value.getFullYear(),
@@ -36,6 +38,8 @@ export function useSchedules() {
       monthEvents.value = res.data
     } catch {
       monthEvents.value = []
+    } finally {
+      loading.value = false
     }
   }
 
@@ -85,6 +89,7 @@ export function useSchedules() {
     monthMatrix: readonly(monthMatrix),
     getMonthEvents,
     hasEvents,
+    loading,
     fetchMonth,
     createSchedule,
     updateSchedule,

@@ -72,6 +72,10 @@ function startEdit() {
 function cancelEdit() { editingId.value = null }
 
 async function saveEdit() {
+  if (!editForm.title.trim() || !editForm.start_time.trim()) {
+    alert('标题和开始时间为必填项')
+    return
+  }
   await updateSchedule(props.schedule.id, { ...editForm }, userId.value)
   editingId.value = null
 }

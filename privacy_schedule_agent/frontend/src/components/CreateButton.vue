@@ -33,8 +33,12 @@ const showDialog = ref(false)
 const form = reactive({ title: '', start_time: '', end_time: '', location: '' })
 
 async function handleCreate() {
-  await createSchedule(form.title, form.start_time, form.end_time, form.location, userId.value)
-  showDialog.value = false
-  form.title = ''; form.start_time = ''; form.end_time = ''; form.location = ''
+  try {
+    await createSchedule(form.title, form.start_time, form.end_time, form.location, userId.value)
+    showDialog.value = false
+    form.title = ''; form.start_time = ''; form.end_time = ''; form.location = ''
+  } catch {
+    alert('创建失败，请检查 LLM 服务是否正常运行')
+  }
 }
 </script>
