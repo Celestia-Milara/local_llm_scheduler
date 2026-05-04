@@ -84,6 +84,21 @@
 
 * **路径隔离**：数据库 `.db` 文件存放于 WSL2 原生路径（如 `/home/user/app/data/`），避免跨系统挂载导致的磁盘性能损耗。
 * **网络闭环**：FastAPI 与 Ollama 之间通过 `localhost` 通信，不经过公网，确保极低延迟与数据隐私。
-* **视觉补偿**：前端 Vue 实现 Streaming 输出，即时展示 Agent 的 `Action`（如“正在计算距离...”），优化用户等待体验。
+* **视觉补偿**：前端 Vue 实现 Streaming 输出，即时展示 Agent 的 `Action`（如”正在计算距离...”），优化用户等待体验。
+
+---
+
+## 7. v3.0 变更摘要 (2026-05)
+
+v3.0 在前端架构与用户体验方面做了以下核心变更，详见 `docs/superpowers/specs/2026-05-04-frontend-v3-design.md`：
+
+| 维度 | v2 状态 | v3 变更 |
+| :--- | :--- | :--- |
+| 前端构建 | CDN 加载 | Vite + Vue SFC + Tailwind PostCSS |
+| 组件化 | 单文件 index.html (450行) | 14 个 .vue 组件，按职责拆分 |
+| 布局 | 左 45% 日历+对话，右 55% 列表 | 侧边栏(48px) + 工具栏 + 月视图主画布 + 可收起 AI 面板(320px) |
+| 用户体系 | 无 | root/root 前端登录，Schedule 表加 `user_id` 字段 |
+| AI 对话 | 固定左侧，始终可见 | 右侧面板，默认收起，按钮展开 |
+| Terminal 日志 | 底部 h-32 固定 | 已移除 |
 
 ---
