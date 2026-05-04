@@ -35,6 +35,7 @@ sessions: Dict[str, List[Dict[str, str]]] = {}
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = "default_user"
+    user_id: Optional[int] = 1
 
 
 class ScheduleUpdateRequest(BaseModel):
@@ -44,6 +45,16 @@ class ScheduleUpdateRequest(BaseModel):
     location: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
+
+
+class ScheduleCreateRequest(BaseModel):
+    title: str
+    start_time: str
+    end_time: str
+    location: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    user_id: Optional[int] = 1
 
 
 @asynccontextmanager
@@ -98,10 +109,12 @@ async def chat_endpoint(request: ChatRequest):
 
 
 @app.get("/schedules")
-async def get_schedules(start: str = None, end: str = None):
+async def get_schedules(start: str = None, end: str = None, user_id: int = None):
     """获取日程列表，支持按时间范围过滤"""
     async with AsyncSessionLocal() as session:
         stmt = select(Schedule).order_by(Schedule.start_time.asc())
+        if user_id is not None:
+            stmt = stmt.where(Schedule.user_id == user_id)
         if start:
             try:
                 dt_start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
@@ -134,7 +147,8 @@ async def get_schedules(start: str = None, end: str = None):
                 "location": s.location_ref,
                 "description": s.description,
                 "category": s.category,
-                "status": s.status
+                "status": s.status,
+                "user_id": s.user_id
             }
             for s in schedules
         ]
@@ -205,6 +219,35 @@ async def update_schedule(event_id: int, req: ScheduleUpdateRequest):
             raise HTTPException(status_code=400, detail=f"时间格式不正确: {str(e)}")
 
 
+@app.post("/schedules")
+async def create_schedule(req: ScheduleCreateRequest):
+    """创建日程（直接创建，不经过 LLM）"""
+    async with AsyncSessionLocal() as session:
+        try:
+            event = Schedule(
+                user_id=req.user_id or 1,
+                title=req.title,
+                start_time=datetime.strptime(req.start_time, "%Y-%m-%d %H:%M:%S"),
+                end_time=datetime.strptime(req.end_time, "%Y-%m-%d %H:%M:%S"),
+                location_ref=req.location or None,
+                description=req.description or None,
+                category=req.category or None,
+                status="confirmed"
+            )
+            session.add(event)
+            await session.commit()
+            await session.refresh(event)
+            return {
+                "id": event.id,
+                "title": event.title,
+                "start_time": event.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                "end_time": event.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                "status": event.status
+            }
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"时间格式不正确: {str(e)}")
+
+
 @app.delete("/schedules/{event_id}")
 async def delete_schedule(event_id: int):
     """删除日程（供前端直接调用）"""
@@ -220,6 +263,9 @@ async def delete_schedule(event_id: int):
         return {"status": "success", "message": f"已删除日程: {event.title}"}
 
 
-# 挂载前端静态文件
-if os.path.exists("frontend"):
+# 挂载前端静态文件（优先使用 Vite 构建产物）
+dist_path = "frontend/dist"
+if os.path.exists(dist_path):
+    app.mount("/", StaticFiles(directory=dist_path, html=True), name="frontend")
+elif os.path.exists("frontend"):
     app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

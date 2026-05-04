@@ -29,8 +29,8 @@ AsyncSessionLocal = async_sessionmaker(
 class Base(DeclarativeBase):
     pass
 
-async def _migrate_v2_columns(conn):
-    """v2.0 迁移：为已有 schedules 表补充新字段"""
+async def _migrate_schedule_columns(conn):
+    """v2.0/v3.0 迁移：为已有 schedules 表补充新字段"""
     from sqlalchemy import inspect as sa_inspect
 
     def _do_inspect(sync_conn):
@@ -50,10 +50,17 @@ async def _migrate_v2_columns(conn):
             )
             logger.info(f"Migration: added column '{col_name}' to schedules table")
 
+    # v3.0: user_id
+    if 'user_id' not in existing_columns:
+        await conn.execute(
+            text("ALTER TABLE schedules ADD COLUMN user_id INTEGER DEFAULT 1")
+        )
+        logger.info("Migration: added column 'user_id' to schedules table")
+
 
 # 数据库初始化函数
 async def init_db():
     async with engine.begin() as conn:
         from app.db.models import Schedule, Summary  # 确保模型被加载
         await conn.run_sync(Base.metadata.create_all)
-        await _migrate_v2_columns(conn)
+        await _migrate_schedule_columns(conn)
