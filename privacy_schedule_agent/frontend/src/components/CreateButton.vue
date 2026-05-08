@@ -1,44 +1,123 @@
 <template>
   <button @click="showDialog = true"
-    class="w-8 h-8 bg-indigo-600 hover:bg-indigo-500 rounded-xl flex items-center justify-center text-white font-bold transition-colors"
+    class="w-9 h-9 bg-copper-500 hover:bg-copper-400 active:bg-copper-600 rounded-xl flex items-center justify-center text-white transition-all shadow-lg shadow-copper-500/20"
     title="新建日程">
-    +
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
   </button>
-  <div v-if="showDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showDialog = false">
-    <div class="bg-slate-900 border border-slate-700 rounded-xl p-6 w-96">
-      <h3 class="font-bold mb-4">新建日程</h3>
-      <div class="space-y-3">
-        <input v-model="form.title" placeholder="标题 *" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
-        <input v-model="form.start_time" placeholder="开始时间 (YYYY-MM-DD HH:MM)" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
-        <input v-model="form.end_time" placeholder="结束时间 (YYYY-MM-DD HH:MM)" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
-        <input v-model="form.location" placeholder="地点" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
-      </div>
-      <div class="flex gap-2 mt-4 justify-end">
-        <button @click="showDialog = false" class="bg-slate-700 hover:bg-slate-600 px-4 py-1.5 rounded text-sm">取消</button>
-        <button @click="handleCreate" :disabled="!form.title || !form.start_time"
-          class="bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 rounded text-sm disabled:opacity-50">创建</button>
+
+  <Transition name="scale">
+    <div v-if="showDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showDialog = false">
+      <div class="bg-white border border-warm-200/80 rounded-2xl p-6 w-96 shadow-2xl shadow-black/10">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="font-display text-lg text-warm-800">新建日程</h3>
+          <button @click="showDialog = false" class="w-7 h-7 flex items-center justify-center rounded-lg text-warm-400 hover:text-warm-600 hover:bg-warm-100 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="space-y-3.5">
+          <input v-model="form.title" placeholder="标题 *"
+            class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 placeholder-warm-400 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-warm-500 w-8 shrink-0">开始</span>
+            <input type="date" v-model="formStartDate"
+              class="flex-1 bg-warm-50 border border-warm-200 rounded-xl px-3 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+            <input type="time" v-model="formStartTime" step="60"
+              class="flex-1 bg-warm-50 border border-warm-200 rounded-xl px-3 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-warm-500 w-8 shrink-0">结束</span>
+            <input type="date" v-model="formEndDate"
+              class="flex-1 bg-warm-50 border border-warm-200 rounded-xl px-3 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+            <input type="time" v-model="formEndTime" step="60"
+              class="flex-1 bg-warm-50 border border-warm-200 rounded-xl px-3 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+          </div>
+
+          <input v-model="form.location" placeholder="地点"
+            class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 placeholder-warm-400 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+
+          <div>
+            <label class="text-xs text-warm-400 mb-1 block">重复</label>
+            <select v-model="form.recurrence_rule"
+              class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+              <option value="">不重复</option>
+              <option value="daily">每天</option>
+              <option value="weekdays">工作日</option>
+              <option value="weekly">每周</option>
+              <option value="monthly">每月</option>
+            </select>
+          </div>
+
+          <div v-if="form.recurrence_rule">
+            <label class="text-xs text-warm-400 mb-1 block">重复截止</label>
+            <input type="date" v-model="formRecurrenceEnd"
+              class="w-full bg-warm-50 border border-warm-200 rounded-xl px-3 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+          </div>
+        </div>
+        <div class="flex gap-2 mt-5 justify-end">
+          <button @click="showDialog = false" class="px-4 py-2 rounded-xl text-sm text-warm-400 hover:text-warm-600 hover:bg-warm-100 transition-colors">取消</button>
+          <button @click="handleCreate" :disabled="!form.title || !formStartDate || !formStartTime || !formEndDate || !formEndTime"
+            class="bg-copper-500 hover:bg-copper-400 active:bg-copper-600 disabled:opacity-40 disabled:cursor-not-allowed px-5 py-2 rounded-xl text-sm font-medium text-white transition-all">创建</button>
+        </div>
       </div>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <script setup>
 import { reactive, ref } from 'vue'
+import axios from 'axios'
 import { useSchedules } from '../composables/useSchedules.js'
 import { useAuth } from '../composables/useAuth.js'
 
-const { createSchedule } = useSchedules()
+const { fetchMonth } = useSchedules()
 const { userId } = useAuth()
 const showDialog = ref(false)
-const form = reactive({ title: '', start_time: '', end_time: '', location: '' })
+const form = reactive({ title: '', location: '', recurrence_rule: '' })
+const formStartDate = ref('')
+const formStartTime = ref('')
+const formEndDate = ref('')
+const formEndTime = ref('')
+const formRecurrenceEnd = ref('')
+
+function resetForm() {
+  form.title = ''; form.location = ''; form.recurrence_rule = ''
+  formStartDate.value = ''; formStartTime.value = ''
+  formEndDate.value = ''; formEndTime.value = ''
+  formRecurrenceEnd.value = ''
+}
 
 async function handleCreate() {
+  if (!form.title.trim() || !formStartDate.value || !formStartTime.value || !formEndDate.value || !formEndTime.value) return
+  const startTime = `${formStartDate.value} ${formStartTime.value}:00`
+  const endTime = `${formEndDate.value} ${formEndTime.value}:00`
+
+  const payload = {
+    title: form.title.trim(),
+    start_time: startTime,
+    end_time: endTime,
+    location: form.location || null,
+    user_id: userId.value
+  }
+  if (form.recurrence_rule) {
+    payload.recurrence_rule = form.recurrence_rule
+    if (formRecurrenceEnd.value) {
+      payload.recurrence_end = `${formRecurrenceEnd.value} 23:59:59`
+    }
+  }
+
   try {
-    await createSchedule(form.title, form.start_time, form.end_time, form.location, userId.value)
+    await axios.post('/schedules', payload)
     showDialog.value = false
-    form.title = ''; form.start_time = ''; form.end_time = ''; form.location = ''
+    resetForm()
+    await fetchMonth(userId.value)
   } catch {
-    alert('创建失败，请检查 LLM 服务是否正常运行')
+    alert('创建失败，请重试')
   }
 }
 </script>

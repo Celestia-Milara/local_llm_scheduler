@@ -156,3 +156,9 @@ privacy_schedule_agent/data/*.sqlite
 data/*.db
 data/*.sqlite
 data/*.log
+
+# Ignore docs directory
+docs/
+
+# Local/external reference repositories
+awesome-design-md/

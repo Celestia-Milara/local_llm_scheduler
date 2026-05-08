@@ -24,6 +24,11 @@ class Schedule(Base):
     # 隐私等级：1-公开, 2-内部, 3-绝密
     privacy_level: Mapped[int] = mapped_column(Integer, default=1)
 
+    # 重复规则：daily / weekly / monthly / weekdays
+    recurrence_rule: Mapped[Optional[str]] = mapped_column(String(20))
+    # 重复结束日期（可选，不设则永久重复）
+    recurrence_end: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
     # 归档关联：指向总结表
     summary_id: Mapped[Optional[int]] = mapped_column(ForeignKey("summaries.id"))
 

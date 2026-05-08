@@ -2,7 +2,7 @@ import json
 import logging
 import ollama
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from app.mcp.calendar_skill import (
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 BRAIN_MODEL = os.getenv("BRAIN_MODEL", "qwen2.5:7b")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
-# 配置 ollama 客户端
-client = ollama.Client(host=OLLAMA_HOST)
+# 配置 ollama 异步客户端（避免阻塞事件循环）
+client = ollama.AsyncClient(host=OLLAMA_HOST)
 
 # 系统提示词设计
 SYSTEM_PROMPT_TEMPLATE = """
@@ -162,7 +162,18 @@ async def run_chat(user_input: str, history: List[Dict[str, str]] = None) -> str
         history = []
 
     # 更新系统提示词中的时间（确保时效性）
-    current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 使用北京时间（UTC+8），确保「明天」「下午」等概念理解正确
+    beijing_tz = timezone.utc  # fallback
+    try:
+        from zoneinfo import ZoneInfo
+        beijing_tz = ZoneInfo("Asia/Shanghai")
+    except Exception:
+        try:
+            import pytz
+            beijing_tz = pytz.timezone("Asia/Shanghai")
+        except Exception:
+            pass
+    current_time_str = datetime.now(beijing_tz).strftime("%Y-%m-%d %H:%M:%S")
     dynamic_system_prompt = SYSTEM_PROMPT_TEMPLATE.format(current_time=current_time_str)
 
     # 构建消息列表
@@ -174,14 +185,17 @@ async def run_chat(user_input: str, history: List[Dict[str, str]] = None) -> str
 
     try:
         # 1. 初始请求：判断是否需要调用工具
-        response = client.chat(
+        response = await client.chat(
             model=BRAIN_MODEL,
             messages=messages,
             tools=TOOLS,
         )
 
-        # 2. 循环处理工具调用（处理多轮思考）
-        while response.get('message', {}).get('tool_calls'):
+        # 2. 循环处理工具调用，上限 10 次防止无限循环
+        MAX_ITERATIONS = 10
+        iteration = 0
+        while response.get('message', {}).get('tool_calls') and iteration < MAX_ITERATIONS:
+            iteration += 1
             tool_calls = response['message']['tool_calls']
             messages.append(response['message'])
 
@@ -220,11 +234,14 @@ async def run_chat(user_input: str, history: List[Dict[str, str]] = None) -> str
                     })
 
             # 二次推理：根据工具执行结果生成回复或继续调用
-            response = client.chat(
+            response = await client.chat(
                 model=BRAIN_MODEL,
                 messages=messages,
                 tools=TOOLS
             )
+
+        if iteration >= MAX_ITERATIONS:
+            logger.warning("Agent reached max tool-call iterations, forcing response")
 
         # 3. 返回最终回复内容
         final_content = response['message'].get('content', "抱歉，我未能生成有效的回复。")

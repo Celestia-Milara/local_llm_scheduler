@@ -10,12 +10,6 @@ import MainLayout from './components/MainLayout.vue'
 
 const { isAuthenticated, logout } = useAuth()
 
-function onLogin() {
-  window.location.reload()
-}
-
-function handleLogout() {
-  logout()
-  window.location.reload()
-}
+function onLogin() { window.location.reload() }
+function handleLogout() { logout(); window.location.reload() }
 </script>

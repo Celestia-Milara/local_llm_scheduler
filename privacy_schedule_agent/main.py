@@ -1,8 +1,10 @@
+import json
 import uvicorn
 import logging
 import os
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from contextlib import asynccontextmanager
@@ -14,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from app.db.database import init_db, AsyncSessionLocal
 from app.db.models import Schedule
 from app.core.agent_engine import run_chat
+from app.mcp.calendar_skill import check_conflict, CODE_WARN
 
 # 加载环境变量
 load_dotenv()
@@ -28,8 +31,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 全局内存 Session 存储
+# 全局内存 Session 存储（上限 100 会话，超限时淘汰最旧）
 sessions: Dict[str, List[Dict[str, str]]] = {}
+MAX_SESSIONS = 100
 
 
 class ChatRequest(BaseModel):
@@ -45,6 +49,9 @@ class ScheduleUpdateRequest(BaseModel):
     location: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
+    recurrence_rule: Optional[str] = None
+    recurrence_end: Optional[str] = None
+    confirm_conflict: Optional[bool] = False
 
 
 class ScheduleCreateRequest(BaseModel):
@@ -55,6 +62,17 @@ class ScheduleCreateRequest(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     user_id: Optional[int] = 1
+    recurrence_rule: Optional[str] = None
+    recurrence_end: Optional[str] = None
+    confirm_conflict: Optional[bool] = False
+
+
+def _parse_conflict_result(conflict_json: str):
+    try:
+        parsed = json.loads(conflict_json)
+    except json.JSONDecodeError:
+        return None, [], "冲突检查结果异常"
+    return parsed.get("status"), parsed.get("conflicts", []), parsed.get("message", "")
 
 
 @asynccontextmanager
@@ -82,6 +100,10 @@ async def chat_endpoint(request: ChatRequest):
 
     # 获取或初始化历史记录
     if session_id not in sessions:
+        if len(sessions) >= MAX_SESSIONS:
+            oldest_key = next(iter(sessions))
+            del sessions[oldest_key]
+            logger.info(f"Evicted oldest session '{oldest_key}'")
         sessions[session_id] = []
 
     history = sessions[session_id]
@@ -105,7 +127,7 @@ async def chat_endpoint(request: ChatRequest):
         }
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="内部处理出错，请稍后重试")
 
 
 @app.get("/schedules")
@@ -148,7 +170,9 @@ async def get_schedules(start: str = None, end: str = None, user_id: int = None)
                 "description": s.description,
                 "category": s.category,
                 "status": s.status,
-                "user_id": s.user_id
+                "user_id": s.user_id,
+                "recurrence_rule": s.recurrence_rule,
+                "recurrence_end": s.recurrence_end.strftime("%Y-%m-%d %H:%M:%S") if s.recurrence_end else None
             }
             for s in schedules
         ]
@@ -171,7 +195,9 @@ async def get_schedule(event_id: int):
             "location": s.location_ref,
             "description": s.description,
             "category": s.category,
-            "status": s.status
+            "status": s.status,
+            "recurrence_rule": s.recurrence_rule,
+            "recurrence_end": s.recurrence_end.strftime("%Y-%m-%d %H:%M:%S") if s.recurrence_end else None
         }
 
 
@@ -186,22 +212,55 @@ async def update_schedule(event_id: int, req: ScheduleUpdateRequest):
             raise HTTPException(status_code=404, detail=f"未找到ID为 {event_id} 的日程")
 
         try:
-            time_changed = False
-            if req.title is not None:
-                event.title = req.title
+            new_start = event.start_time
+            new_end = event.end_time
+            new_location = event.location_ref
+            time_or_location_changed = False
+
             if req.start_time is not None:
-                event.start_time = datetime.strptime(req.start_time, "%Y-%m-%d %H:%M:%S")
-                time_changed = True
+                new_start = datetime.strptime(req.start_time, "%Y-%m-%d %H:%M:%S")
+                time_or_location_changed = True
             if req.end_time is not None:
-                event.end_time = datetime.strptime(req.end_time, "%Y-%m-%d %H:%M:%S")
-                time_changed = True
+                new_end = datetime.strptime(req.end_time, "%Y-%m-%d %H:%M:%S")
+                time_or_location_changed = True
             if req.location is not None:
-                event.location_ref = req.location
-                time_changed = True
+                new_location = req.location
+                time_or_location_changed = True
+            if new_end <= new_start:
+                raise HTTPException(status_code=400, detail="结束时间必须晚于开始时间")
+
+            conflicts = []
+            if time_or_location_changed:
+                conflict_raw = await check_conflict(
+                    start_time=new_start.strftime("%Y-%m-%d %H:%M:%S"),
+                    end_time=new_end.strftime("%Y-%m-%d %H:%M:%S"),
+                    location=(new_location or ""),
+                    exclude_event_id=event_id,
+                )
+                conflict_status, conflicts, conflict_message = _parse_conflict_result(conflict_raw)
+                if conflict_status == CODE_WARN and not req.confirm_conflict:
+                    return JSONResponse(
+                        status_code=409,
+                        content={
+                            "status": "conflict_requires_confirmation",
+                            "message": conflict_message or "检测到冲突，需要显式确认后保存",
+                            "conflicts": conflicts,
+                        },
+                    )
+
+            event.start_time = new_start
+            event.end_time = new_end
+            event.location_ref = new_location
             if req.description is not None:
                 event.description = req.description
             if req.category is not None:
                 event.category = req.category
+            if req.recurrence_rule is not None:
+                event.recurrence_rule = req.recurrence_rule if req.recurrence_rule else None
+            if req.recurrence_end is not None:
+                event.recurrence_end = datetime.strptime(req.recurrence_end, "%Y-%m-%d %H:%M:%S") if req.recurrence_end else None
+            if time_or_location_changed:
+                event.status = "conflicted" if conflicts else "confirmed"
 
             await session.commit()
 
@@ -213,7 +272,8 @@ async def update_schedule(event_id: int, req: ScheduleUpdateRequest):
                 "location": event.location_ref,
                 "description": event.description,
                 "category": event.category,
-                "status": event.status
+                "status": event.status,
+                "conflicts": conflicts if event.status == "conflicted" else []
             }
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"时间格式不正确: {str(e)}")
@@ -224,15 +284,38 @@ async def create_schedule(req: ScheduleCreateRequest):
     """创建日程（直接创建，不经过 LLM）"""
     async with AsyncSessionLocal() as session:
         try:
+            dt_start = datetime.strptime(req.start_time, "%Y-%m-%d %H:%M:%S")
+            dt_end = datetime.strptime(req.end_time, "%Y-%m-%d %H:%M:%S")
+            if dt_end <= dt_start:
+                raise HTTPException(status_code=400, detail="结束时间必须晚于开始时间")
+
+            conflict_raw = await check_conflict(
+                start_time=dt_start.strftime("%Y-%m-%d %H:%M:%S"),
+                end_time=dt_end.strftime("%Y-%m-%d %H:%M:%S"),
+                location=(req.location or ""),
+            )
+            conflict_status, conflicts, conflict_message = _parse_conflict_result(conflict_raw)
+            if conflict_status == CODE_WARN and not req.confirm_conflict:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "status": "conflict_requires_confirmation",
+                        "message": conflict_message or "检测到冲突，需要显式确认后保存",
+                        "conflicts": conflicts,
+                    },
+                )
+
             event = Schedule(
                 user_id=req.user_id or 1,
                 title=req.title,
-                start_time=datetime.strptime(req.start_time, "%Y-%m-%d %H:%M:%S"),
-                end_time=datetime.strptime(req.end_time, "%Y-%m-%d %H:%M:%S"),
+                start_time=dt_start,
+                end_time=dt_end,
                 location_ref=req.location or None,
                 description=req.description or None,
                 category=req.category or None,
-                status="confirmed"
+                status="conflicted" if conflict_status == CODE_WARN else "confirmed",
+                recurrence_rule=req.recurrence_rule or None,
+                recurrence_end=datetime.strptime(req.recurrence_end, "%Y-%m-%d %H:%M:%S") if req.recurrence_end else None
             )
             session.add(event)
             await session.commit()
@@ -242,7 +325,8 @@ async def create_schedule(req: ScheduleCreateRequest):
                 "title": event.title,
                 "start_time": event.start_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "end_time": event.end_time.strftime("%Y-%m-%d %H:%M:%S"),
-                "status": event.status
+                "status": event.status,
+                "conflicts": conflicts if event.status == "conflicted" else []
             }
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"时间格式不正确: {str(e)}")
@@ -261,6 +345,41 @@ async def delete_schedule(event_id: int):
         await session.delete(event)
         await session.commit()
         return {"status": "success", "message": f"已删除日程: {event.title}"}
+
+
+@app.get("/schedules/export/json")
+async def export_schedules_json(user_id: int = None):
+    """导出全部日程为 JSON 文件"""
+    async with AsyncSessionLocal() as session:
+        stmt = select(Schedule).order_by(Schedule.start_time.asc())
+        if user_id is not None:
+            stmt = stmt.where(Schedule.user_id == user_id)
+        result = await session.execute(stmt)
+        schedules = result.scalars().all()
+        data = [
+            {
+                "id": s.id,
+                "title": s.title,
+                "start_time": s.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                "end_time": s.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                "location": s.location_ref,
+                "description": s.description,
+                "category": s.category,
+                "status": s.status,
+                "privacy_level": s.privacy_level,
+                "user_id": s.user_id,
+                "recurrence_rule": s.recurrence_rule,
+                "recurrence_end": s.recurrence_end.strftime("%Y-%m-%d %H:%M:%S") if s.recurrence_end else None
+            }
+            for s in schedules
+        ]
+    json_str = json.dumps(data, ensure_ascii=False, indent=2)
+    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return Response(
+        content=json_str,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="schedules_export_{now_str}.json"'}
+    )
 
 
 # 挂载前端静态文件（优先使用 Vite 构建产物）

@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_
 from app.db.database import AsyncSessionLocal
 from app.db.models import Schedule
 from app.services.location_service import get_travel_time
@@ -14,15 +14,17 @@ CODE_OK = "OK"
 CODE_WARN = "WARN"
 CODE_ERROR = "ERROR"
 
-async def check_conflict(start_time: str, end_time: str, location: str) -> str:
+async def check_conflict(start_time: str, end_time: str, location: str,
+                         exclude_event_id: int = None) -> str:
     """
     检查指定时间段的日程是否存在物理或时间上的冲突。
-    
+
     Args:
         start_time (str): 计划开始时间，格式 ISO (例如 "2026-04-23 14:00:00")
         end_time (str): 计划结束时间，格式 ISO (例如 "2026-04-23 15:00:00")
         location (str): 计划地点
-        
+        exclude_event_id (int): 排除的日程ID（更新时排除自身）
+
     Returns:
         str: 包含 status 和冲突详情的 JSON 字符串。
     """
@@ -57,30 +59,30 @@ async def check_conflict(start_time: str, end_time: str, location: str) -> str:
 
         # 2. 检查通勤冲突 (与前一个行程)
         if prev_event and prev_event.location_ref and location:
-            travel_min = await get_travel_time(prev_event.location_ref, location)
+            travel_min = get_travel_time(prev_event.location_ref, location)
             required_arrival_time = prev_event.end_time + timedelta(minutes=travel_min)
             if required_arrival_time > dt_start:
                 conflicts.append({
                     "type": "TRAVEL_CONFLICT",
-                    "reason": f"距离上一日程 '{prev_event.title}' 仅有 {(dt_start - prev_event.end_time).seconds // 60} 分钟，但通勤需要 {travel_min} 分钟"
+                    "reason": f"距离上一日程 '{prev_event.title}' 仅有 {(dt_start - prev_event.end_time).total_seconds() // 60} 分钟，但通勤需要 {travel_min} 分钟"
                 })
 
         # 2b. 检查通勤冲突 (与后一个行程)
         if next_event and next_event.location_ref and location:
-            travel_min = await get_travel_time(location, next_event.location_ref)
+            travel_min = get_travel_time(location, next_event.location_ref)
             required_arrival_time = dt_end + timedelta(minutes=travel_min)
             if required_arrival_time > next_event.start_time:
                 conflicts.append({
                     "type": "TRAVEL_CONFLICT",
-                    "reason": f"本日程结束后到下一日程 '{next_event.title}' 仅有 {(next_event.start_time - dt_end).seconds // 60} 分钟，但通勤需要 {travel_min} 分钟"
+                    "reason": f"本日程结束后到下一日程 '{next_event.title}' 仅有 {int((next_event.start_time - dt_end).total_seconds() // 60)} 分钟，但通勤需要 {travel_min} 分钟"
                 })
 
-        # 3. 检查硬性时间重叠 (Overlap)
+        # 3. 检查硬性时间重叠 (Overlap)，排除自身（用于更新场景）
         stmt_overlap = select(Schedule).where(
-            or_(
-                and_(Schedule.start_time < dt_end, Schedule.end_time > dt_start)
-            )
+            and_(Schedule.start_time < dt_end, Schedule.end_time > dt_start)
         )
+        if exclude_event_id is not None:
+            stmt_overlap = stmt_overlap.where(Schedule.id != exclude_event_id)
         result_overlap = await session.execute(stmt_overlap)
         overlapping_events = result_overlap.scalars().all()
         
@@ -101,7 +103,7 @@ async def check_conflict(start_time: str, end_time: str, location: str) -> str:
 
 async def add_event(title: str, start_time: str, end_time: str, location: str,
                     description: str = None, category: str = None,
-                    status: str = "confirmed") -> str:
+                    status: str = "confirmed", user_id: int = 1) -> str:
     """
     将新日程写入数据库。
 
@@ -126,6 +128,7 @@ async def add_event(title: str, start_time: str, end_time: str, location: str,
     async with AsyncSessionLocal() as session:
         try:
             new_event = Schedule(
+                user_id=user_id,
                 title=title,
                 start_time=dt_start,
                 end_time=dt_end,
@@ -284,7 +287,8 @@ async def update_event(event_id: int, title: str = None,
                 conflict_result = await check_conflict(
                     new_start.strftime("%Y-%m-%d %H:%M:%S"),
                     new_end.strftime("%Y-%m-%d %H:%M:%S"),
-                    new_location or ""
+                    new_location or "",
+                    exclude_event_id=event_id
                 )
                 conflict_data = json.loads(conflict_result)
                 if conflict_data.get("status") == CODE_WARN:
@@ -386,7 +390,7 @@ async def find_free_slots(date: str, duration_minutes: int = 60,
     cursor = day_start
     for event in events:
         if event.start_time > cursor:
-            gap_minutes = (event.start_time - cursor).seconds // 60
+            gap_minutes = int((event.start_time - cursor).total_seconds() // 60)
             if gap_minutes >= duration_minutes:
                 slots.append({
                     "start": cursor.strftime("%H:%M"),
@@ -396,7 +400,7 @@ async def find_free_slots(date: str, duration_minutes: int = 60,
         cursor = max(cursor, event.end_time)
 
     if cursor < day_end:
-        gap_minutes = (day_end - cursor).seconds // 60
+        gap_minutes = int((day_end - cursor).total_seconds() // 60)
         if gap_minutes >= duration_minutes:
             slots.append({
                 "start": cursor.strftime("%H:%M"),

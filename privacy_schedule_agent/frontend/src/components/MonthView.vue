@@ -1,8 +1,10 @@
 <template>
-  <main class="flex-1 flex flex-col bg-slate-950 overflow-hidden p-4">
+  <main class="flex-1 flex flex-col overflow-hidden p-5">
     <div class="flex-1 relative">
       <CalendarGrid @select-date="openPopover" />
-      <DayPopover v-if="popoverDate" :date-key="popoverDate" @close="closePopover" />
+      <Transition name="scale">
+        <DayPopover v-if="popoverDate" :date-key="popoverDate" @close="closePopover" />
+      </Transition>
     </div>
   </main>
 </template>
@@ -14,11 +16,6 @@ import DayPopover from './DayPopover.vue'
 
 const popoverDate = ref(null)
 
-function openPopover(dateKey) {
-  popoverDate.value = dateKey
-}
-
-function closePopover() {
-  popoverDate.value = null
-}
+function openPopover(dateKey) { popoverDate.value = dateKey }
+function closePopover() { popoverDate.value = null }
 </script>

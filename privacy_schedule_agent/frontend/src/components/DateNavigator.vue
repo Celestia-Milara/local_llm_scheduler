@@ -1,12 +1,20 @@
 <template>
   <div class="flex items-center gap-2 text-sm">
     <button @click="goToday"
-      class="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-xs font-medium transition-colors">
+      class="bg-warm-100 hover:bg-warm-200 px-3 py-1 rounded-lg text-xs font-medium text-warm-600 transition-colors">
       今天
     </button>
-    <button @click="prevMonth" class="text-slate-400 hover:text-slate-200 text-lg leading-none">&#x2039;</button>
-    <span class="text-sm font-medium w-28 text-center">{{ currentMonthLabel }}</span>
-    <button @click="nextMonth" class="text-slate-400 hover:text-slate-200 text-lg leading-none">&#x203a;</button>
+    <button @click="prevMonth" class="text-warm-400 hover:text-warm-600 transition-colors">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+      </svg>
+    </button>
+    <span class="font-display text-sm text-warm-700 w-28 text-center">{{ currentMonthLabel }}</span>
+    <button @click="nextMonth" class="text-warm-400 hover:text-warm-600 transition-colors">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -23,6 +31,8 @@ const currentMonthLabel = computed(() => {
 
 function goToday() {
   const today = new Date()
+  const m = currentMonth.value
+  if (m.getFullYear() === today.getFullYear() && m.getMonth() === today.getMonth()) return
   currentMonth.value = new Date(today.getFullYear(), today.getMonth(), 1)
   selectedDate.value = today.toISOString().slice(0, 10)
   fetchMonth()

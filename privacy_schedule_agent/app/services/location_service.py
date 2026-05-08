@@ -16,37 +16,33 @@ CAMPUS_DISTANCES = {
     frozenset(["宿舍", "实验楼"]): 25,
 }
 
-async def get_travel_time(origin: str, destination: str) -> int:
+def get_travel_time(origin: str, destination: str) -> int:
     """
     计算两地之间的预计通勤时间（分钟）。
-    
+
     Args:
         origin (str): 起点名称
         destination (str): 终点名称
-        
+
     Returns:
         int: 预计步行分钟数
     """
     if not origin or not destination or origin == destination:
         return 0
 
-    # 规范化输入，去除空格
     origin = origin.strip()
     destination = destination.strip()
 
-    # 创建查找键（无序集合）
     route_key = frozenset([origin, destination])
 
-    # 1. 尝试从本地预设字典中查找
     travel_time = CAMPUS_DISTANCES.get(route_key)
-    
+
     if travel_time is not None:
         logger.debug(f"Found preset travel time for {origin} -> {destination}: {travel_time} min")
         return travel_time
 
-    # 2. 兜底逻辑：如果找不到匹配地标，返回固定默认值
-    # TODO: 未来在此处集成外部地图 API (例如高德/百度地图) 来获取实时通勤数据
+    # 兜底默认值
     default_time = 10
     logger.info(f"No preset distance for {origin} -> {destination}. Using default: {default_time} min")
-    
+
     return default_time

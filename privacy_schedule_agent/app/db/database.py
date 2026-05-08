@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/schedule.db")
 
 # 创建异步引擎
+# 注意: check_same_thread=False 仅适用于 SQLite，切换数据库时需移除
 engine = create_async_engine(
-    DATABASE_URL, 
-    connect_args={"check_same_thread": False}
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 )
 
 # 创建异步会话工厂
@@ -56,6 +57,16 @@ async def _migrate_schedule_columns(conn):
             text("ALTER TABLE schedules ADD COLUMN user_id INTEGER DEFAULT 1")
         )
         logger.info("Migration: added column 'user_id' to schedules table")
+
+    # v3.0+: recurrence_rule
+    if 'recurrence_rule' not in existing_columns:
+        await conn.execute(
+            text("ALTER TABLE schedules ADD COLUMN recurrence_rule VARCHAR(20)")
+        )
+        await conn.execute(
+            text("ALTER TABLE schedules ADD COLUMN recurrence_end DATETIME")
+        )
+        logger.info("Migration: added recurrence columns to schedules table")
 
 
 # 数据库初始化函数

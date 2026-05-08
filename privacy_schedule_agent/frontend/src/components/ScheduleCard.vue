@@ -1,97 +1,80 @@
 <template>
-  <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-slate-600 transition-all group">
-    <!-- View Mode -->
-    <div v-if="editingId !== schedule.id" class="flex items-start justify-between gap-2">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-[10px] text-slate-400 bg-slate-700 px-1.5 py-0.5 rounded">{{ schedule.start_time?.split(' ')[1]?.slice(0,5) }}</span>
-          <h4 class="font-medium text-sm truncate">{{ schedule.title }}</h4>
-          <span v-if="schedule.category"
-            class="text-[10px] px-1.5 py-0.5 rounded-full border"
-            :class="categoryClass(schedule.category)">
-            {{ schedule.category }}
-          </span>
+  <div>
+    <!-- Schedule card (clickable) -->
+    <div class="bg-white border border-warm-200/60 rounded-xl p-3.5 hover:border-warm-300/50 hover:bg-warm-50 hover-lift group cursor-pointer"
+      @click="openDetail('view')">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="text-[10px] font-medium text-warm-400 bg-warm-100 px-2 py-0.5 rounded-md border border-warm-200/50">{{ schedule.start_time?.split(' ')[1]?.slice(0,5) }}</span>
+            <h4 class="text-sm font-medium text-warm-800 truncate">{{ schedule.title }}</h4>
+            <span v-if="schedule.category"
+              class="text-[10px] px-1.5 py-0.5 rounded-full border"
+              :class="categoryClass(schedule.category)">
+              {{ schedule.category }}
+            </span>
+            <span v-if="schedule.recurrence_rule"
+              class="text-[9px] text-warm-400 font-medium" title="重复日程">↻</span>
+          </div>
+          <p v-if="schedule.location" class="text-xs text-warm-500 flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            {{ schedule.location }}
+          </p>
+          <p v-if="schedule.description" class="text-xs text-warm-400 mt-1 line-clamp-1">{{ schedule.description }}</p>
         </div>
-        <p v-if="schedule.location" class="text-xs text-slate-400 flex items-center gap-1">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          {{ schedule.location }}
-        </p>
-        <p v-if="schedule.description" class="text-xs text-slate-500 mt-0.5">{{ schedule.description }}</p>
-      </div>
-      <div class="flex items-center gap-1 shrink-0">
-        <span v-if="schedule.status === 'conflicted'" class="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full">⚠ 冲突</span>
-        <button @click="startEdit" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-indigo-400 p-1" title="编辑">
-          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/></svg>
-        </button>
-        <button @click="handleDelete" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1" title="删除">
-          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"/></svg>
-        </button>
+        <div class="flex items-center gap-1 shrink-0" @click.stop>
+          <span v-if="schedule.status === 'conflicted'" class="text-[10px] text-copper-400 bg-copper-400/10 px-1.5 py-0.5 rounded-full border border-copper-400/20">冲突</span>
+          <button @click="openDetail('edit')" class="opacity-0 group-hover:opacity-100 text-warm-500 hover:text-copper-400 p-1 transition-all" title="编辑">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+            </svg>
+          </button>
+          <button @click="handleDelete" class="opacity-0 group-hover:opacity-100 text-warm-500 hover:text-copper-500 p-1 transition-all" title="删除">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Edit Mode -->
-    <div v-else class="space-y-2">
-      <input v-model="editForm.title" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm" placeholder="标题" @keyup.enter="saveEdit">
-      <div class="flex gap-2">
-        <input v-model="editForm.start_time" class="flex-1 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs" placeholder="开始时间">
-        <input v-model="editForm.end_time" class="flex-1 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs" placeholder="结束时间">
-      </div>
-      <input v-model="editForm.location" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs" placeholder="地点">
-      <div class="flex gap-2 pt-1">
-        <button @click="saveEdit" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1 rounded text-xs">保存</button>
-        <button @click="cancelEdit" class="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-xs">取消</button>
-      </div>
-    </div>
+    <!-- Detail modal -->
+    <ScheduleDetail :schedule="schedule" :visible="detailVisible" @close="detailVisible = false" @update="$emit('update')" />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
 import { useSchedules } from '../composables/useSchedules.js'
 import { useAuth } from '../composables/useAuth.js'
+import ScheduleDetail from './ScheduleDetail.vue'
 
 const props = defineProps({ schedule: Object })
-const { updateSchedule, deleteSchedule } = useSchedules()
+defineEmits(['update'])
+
+const { deleteSchedule } = useSchedules()
 const { userId } = useAuth()
 
-const editingId = ref(null)
-const editForm = reactive({ title: '', start_time: '', end_time: '', location: '', description: '', category: '' })
+const detailVisible = ref(false)
+const detailMode = ref('view')
 
-function startEdit() {
-  editingId.value = props.schedule.id
-  Object.assign(editForm, {
-    title: props.schedule.title,
-    start_time: props.schedule.start_time,
-    end_time: props.schedule.end_time,
-    location: props.schedule.location || '',
-    description: props.schedule.description || '',
-    category: props.schedule.category || ''
-  })
-}
-
-function cancelEdit() { editingId.value = null }
-
-async function saveEdit() {
-  if (!editForm.title.trim() || !editForm.start_time.trim()) {
-    alert('标题和开始时间为必填项')
-    return
-  }
-  await updateSchedule(props.schedule.id, { ...editForm }, userId.value)
-  editingId.value = null
+function openDetail(mode) {
+  detailMode.value = mode
+  detailVisible.value = true
 }
 
 async function handleDelete() {
-  if (confirm(`确认删除"${props.schedule.title}"？`)) {
+  if (confirm(`确认删除「${props.schedule.title}」？`)) {
     await deleteSchedule(props.schedule.id, userId.value)
   }
 }
 
 function categoryClass(cat) {
   const map = {
-    '工作': 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30',
-    '学习': 'text-cyan-300 bg-cyan-500/10 border-cyan-500/30',
-    '生活': 'text-orange-300 bg-orange-500/10 border-orange-500/30'
+    '工作': 'bg-copper-400/10 text-copper-300 border-copper-400/20',
+    '学习': 'bg-gold-400/10 text-gold-300 border-gold-400/20',
+    '生活': 'bg-warm-500/10 text-warm-300 border-warm-500/20'
   }
-  return map[cat] || 'text-slate-400 bg-slate-500/10 border-slate-500/30'
+  return map[cat] || 'text-warm-400 bg-warm-500/10 border-warm-500/20'
 }
 </script>

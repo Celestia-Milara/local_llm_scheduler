@@ -1,12 +1,13 @@
 import { ref, readonly } from 'vue'
 import axios from 'axios'
-import { getMonthRange, getMonthMatrix, toDateKey } from '../utils/calendar.js'
+import { getMonthRange, getMonthMatrix, toDateKey, expandRecurrence } from '../utils/calendar.js'
 
 const monthEvents = ref([])
 const selectedDate = ref(toDateKey(new Date()))
 const currentMonth = ref(new Date())
 const monthMatrix = ref([])
 const loading = ref(false)
+let initialized = false
 
 export function useSchedules() {
   function refreshMonthMatrix() {
@@ -21,7 +22,11 @@ export function useSchedules() {
   }
 
   function hasEvents(dateKey) {
-    return monthEvents.value.some(e => e.start_time.startsWith(dateKey))
+    return monthEvents.value.some(e => {
+      const start = e.start_time.slice(0, 10)
+      const end = e.end_time.slice(0, 10)
+      return dateKey >= start && dateKey <= end
+    })
   }
 
   async function fetchMonth(userId = 1) {
@@ -35,7 +40,19 @@ export function useSchedules() {
       const res = await axios.get('/schedules', {
         params: { start: range.start, end: range.end, user_id: userId }
       })
-      monthEvents.value = res.data
+      // Expand recurring events
+      const expanded = []
+      for (const event of res.data) {
+        const instances = expandRecurrence(event, range.start, range.end)
+        // Only add the original event if it's not recurring (or keep it for non-recurring)
+        if (event.recurrence_rule) {
+          // Skip non-first original (first instance overlaps with it)
+          expanded.push(...instances)
+        } else {
+          expanded.push(event)
+        }
+      }
+      monthEvents.value = expanded
     } catch {
       monthEvents.value = []
     } finally {
@@ -80,6 +97,11 @@ export function useSchedules() {
     } finally {
       await fetchMonth(userId)
     }
+  }
+
+  if (!initialized) {
+    initialized = true
+    fetchMonth()
   }
 
   return {

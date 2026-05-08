@@ -1,17 +1,19 @@
 <template>
-  <div ref="scrollRef" class="flex-1 overflow-y-auto p-3 space-y-3">
+  <div ref="scrollRef" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
     <div v-for="(msg, i) in messages" :key="i"
       :class="['flex', msg.role === 'user' ? 'justify-end' : 'justify-start']">
-      <div :class="['max-w-[85%] p-2.5 rounded-xl text-sm',
-        msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700']">
+      <div :class="['max-w-[85%] p-3 text-sm leading-relaxed',
+        msg.role === 'user'
+          ? 'bg-copper-500 text-white rounded-2xl rounded-tr-md'
+          : 'bg-warm-100 text-warm-700 rounded-2xl rounded-tl-md border border-warm-200/50']">
         <div class="pre-wrap">{{ msg.content }}</div>
       </div>
     </div>
     <div v-if="loading" class="flex justify-start">
-      <div class="bg-slate-800 p-3 rounded-xl flex items-center gap-1.5">
-        <div class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></div>
-        <div class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-.3s]"></div>
-        <div class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-.5s]"></div>
+      <div class="bg-warm-100 border border-warm-200/50 px-4 py-3 rounded-2xl rounded-tl-md flex items-center gap-1.5">
+        <div class="w-1.5 h-1.5 bg-copper-400 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+        <div class="w-1.5 h-1.5 bg-copper-400 rounded-full animate-bounce" style="animation-delay: 0.15s"></div>
+        <div class="w-1.5 h-1.5 bg-copper-400 rounded-full animate-bounce" style="animation-delay: 0.3s"></div>
       </div>
     </div>
   </div>
