@@ -157,8 +157,8 @@ data/*.db
 data/*.sqlite
 data/*.log
 
-# Ignore docs directory
-docs/
+# Keep project docs in repository
+# (CLAUDE.md references docs/project-reference.md as required reference)
 
 # Local/external reference repositories
 awesome-design-md/
