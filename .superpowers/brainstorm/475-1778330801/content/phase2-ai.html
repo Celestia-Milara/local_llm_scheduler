@@ -1,0 +1,44 @@
+<h2>Phase 2: AI 体验增强</h2>
+<p class="subtitle">当前：一次性请求/响应、无推理过程展示、对话内存存储</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="stream" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>流式输出 (SSE)</h3>
+      <p>后端 Server-Sent Events 逐字推送 LLM 响应，前端打字机效果展示。Agent 的工具调用过程也实时反馈。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="reasoning" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>推理过程透明化</h3>
+      <p>Agent 思考链展示："🔍 正在检查冲突..." → "⚡ 发现时间冲突" → "💡 建议调整到15:00"</p>
+    </div>
+  </div>
+  <div class="option" data-choice="history" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>对话历史持久化</h3>
+      <p>从内存字典迁移到 SQLite 存储，支持会话恢复、历史搜索、上下文压缩（滑动窗口 + 摘要）</p>
+    </div>
+  </div>
+  <div class="option" data-choice="analysis" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>智能日程分析</h3>
+      <p>利用 auto_summarize Skill 生成周报/月报、分析时间分配、识别空闲模式</p>
+    </div>
+  </div>
+  <div class="option" data-choice="quick" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>快捷操作面板</h3>
+      <p>AI 面板添加上下文快捷操作："添加日程""查看本周安排""分析时间分配"等预设 Prompt</p>
+    </div>
+  </div>
+</div><｜end▁of▁thinking｜>
+
+<｜｜DSML｜｜tool_calls>
+<｜｜DSML｜｜invoke name="AskUserQuestion">
+<｜｜DSML｜｜parameter name="questions" string="false">[{"question": "Phase 2 AI 体验增强中，你最关注哪些方向？（可多选）", "multiSelect": true, "options": [{"description": "SSE 逐字推送，打字机效果，工具调用实时反馈", "label": "流式输出 (SSE)"}, {"description": "展示 Agent 思考链：查冲突→发现冲突→建议替代", "label": "推理过程透明化"}, {"description": "从内存迁移到 SQLite，支持会话恢复和历史搜索", "label": "对话历史持久化"}, {"description": "auto_summarize 生成周报/月报，分析时间分配", "label": "智能日程分析"}, {"description": "预设 Prompt 快捷按钮，如"添加日程""查看本周"", "label": "快捷操作面板"}], "header": "Phase 2 AI"}]

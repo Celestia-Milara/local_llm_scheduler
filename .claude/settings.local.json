@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(curl -s http://localhost:5173/)",
+      "WebFetch(domain:getdesign.md)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -sx http://127.0.0.1:7897 https://getdesign.md/api/og/claude/design-md)",
+      "Bash(curl -sx http://127.0.0.1:7897 -H \"Accept: application/json\" https://getdesign.md/design-md/claude)"
+    ]
+  }
+}

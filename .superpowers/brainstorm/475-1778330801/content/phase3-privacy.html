@@ -1,0 +1,44 @@
+<h2>Phase 3: 隐私保护深化</h2>
+<p class="subtitle">当前 privacy_level 字段存在但未实际使用，认证为 root/root 硬编码</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="level" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>privacy_level 全面落地</h3>
+      <p>前端展示隐私等级（1-公开/2-内部/3-绝密），创建/编辑时可设置。API 按等级过滤，高隐私日程在月视图模糊显示标题。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="encrypt" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>本地数据加密</h3>
+      <p>SQLite 加密扩展（SQLCipher）或应用层敏感字段 AES 加密。纯本地应用可选方案，不强制。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="auth" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>认证系统增强</h3>
+      <p>后端真实鉴权（JWT/Session），支持多用户隔离数据。但保持纯本地部署，无远程注册。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="lifecycle" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>数据生命周期管理</h3>
+      <p>自动归档过期日程到 Summaries 表（LLM 生成摘要），支持数据清理策略和备份恢复。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="audit" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>隐私审计追踪</h3>
+      <p>记录所有数据访问操作（谁/何时/访问了什么），供用户审查数据使用情况。</p>
+    </div>
+  </div>
+</div><｜end▁of▁thinking｜>
+
+<｜｜DSML｜｜tool_calls>
+<｜｜DSML｜｜invoke name="AskUserQuestion">
+<｜｜DSML｜｜parameter name="questions" string="false">[{"question": "Phase 3 隐私保护深化中，你最关注哪些方向？（可多选）", "multiSelect": true, "options": [{"description": "前端展示 + 可设置，API 按等级过滤，高隐私日程模糊显示", "label": "privacy_level 全面落地"}, {"description": "SQLCipher 或应用层 AES 加密（可选不强制）", "label": "本地数据加密"}, {"description": "后端 JWT 鉴权，多用户数据隔离，保持纯本地部署", "label": "认证系统增强"}, {"description": "自动归档 + LLM 摘要生成 + 数据清理策略", "label": "数据生命周期管理"}, {"description": "记录数据访问操作日志，供用户审查", "label": "隐私审计追踪"}], "header": "Phase 3 隐私"}]

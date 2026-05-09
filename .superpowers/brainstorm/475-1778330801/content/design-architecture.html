@@ -1,0 +1,34 @@
+<h2>架构总览</h2>
+<p class="subtitle">优化后的系统架构和数据流</p>
+
+<h3>新目录结构</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.5">
+app/
+├── skill/                      ← 新: 插件式 Skill 系统
+│   ├── __init__.py             ← @skill 装饰器
+│   ├── registry.py             ← 注册器 + 目录扫描 + 热加载
+│   ├── calendar_skill.py       ← 现有 6 个原子 Skill (迁移)
+│   ├── summarize_skill.py      ← 新: 自动归档总结
+│   └── import_export_skill.py  ← 新: 批量导入导出 (CSV/iCal)
+│
+├── auth/                       ← 新: 条件式认证
+│   ├── jwt.py                  ← JWT 生成/验证
+│   └── middleware.py           ← 条件中间件 (local 模式跳过)
+│
+├── core/agent_engine.py        ← 改: 从 skill/ 注册表动态加载 TOOLS
+├── services/location_service.py
+├── db/database.py              ← 改: 支持 PostgreSQL
+├── db/models.py                ← 改: 对话历史模型
+├── db/seed.py                  ← 新: 数据清理/归档定时任务
+└── main.py                     ← 改: 条件中间件 + SSE 端点</pre>
+
+<h3>数据流: 对话 Skill 调用</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.5">
+用户输入
+  → POST /chat (SSE)
+  → agent_engine.run_chat()
+    → 动态加载 skill/ 下注册的工具
+    → Ollama Function Calling
+    → 执行 Skill → JSON 结果
+    → SSE 逐字 + 推理步骤推送
+  → 前端打字机 + 步骤状态展示</pre>

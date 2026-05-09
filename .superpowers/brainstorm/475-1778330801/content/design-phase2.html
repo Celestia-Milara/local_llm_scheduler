@@ -1,0 +1,120 @@
+<h2>Phase 2: AI 体验增强</h2>
+
+<h3>1. 流式输出 (SSE) + 推理透明化</h3>
+<p>当前 <code>POST /chat</code> 返回完整 JSON，改为 SSE 端点，逐事件推送：</p>
+
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# SSE 事件流格式
+event: step      ← Agent 推理步骤
+data: {"type":"thinking","text":"正在检查时间冲突..."}
+
+event: step
+data: {"type":"tool_call","tool":"check_conflict","args":"..."}
+
+event: step
+data: {"type":"tool_result","tool":"check_conflict","status":"WARN","summary":"与'组会'时间重叠"}
+
+event: token     ← LLM 逐字输出
+data: "已为您"
+
+event: token
+data: "添加日程"
+
+event: done
+data: {"session_id":"..."}</pre>
+
+<div class="section">
+  <h3>前端消息 Flow</h3>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0">
+    <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:10px;flex:1;min-width:120px;text-align:center">
+      <div style="color:#fbbf24;font-size:20px">🔍</div>
+      <div style="color:#d4a373;font-size:13px;font-weight:600">思考中</div>
+      <div style="color:#6b7280;font-size:11px">灰色脉冲动画</div>
+    </div>
+    <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:10px;flex:1;min-width:120px;text-align:center">
+      <div style="color:#fbbf24;font-size:20px">⚡</div>
+      <div style="color:#d4a373;font-size:13px;font-weight:600">调用工具</div>
+      <div style="color:#6b7280;font-size:11px">显示工具名+参数</div>
+    </div>
+    <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:10px;flex:1;min-width:120px;text-align:center">
+      <div style="color:#fbbf24;font-size:20px">📋</div>
+      <div style="color:#d4a373;font-size:13px;font-weight:600">工具结果</div>
+      <div style="color:#6b7280;font-size:11px">折叠可展开</div>
+    </div>
+    <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:10px;flex:1;min-width:120px;text-align:center">
+      <div style="color:#fbbf24;font-size:20px">💬</div>
+      <div style="color:#d4a373;font-size:13px;font-weight:600">打字机输出</div>
+      <div style="color:#6b7280;font-size:11px">逐字显示</div>
+    </div>
+  </div>
+</div>
+
+<h3>2. 对话历史持久化</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# db/models.py 新增
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+    id = Column(String(36), primary_key=True)   # UUID
+    user_id = Column(Integer, ForeignKey("schedules.user_id"))
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String(36), ForeignKey("chat_sessions.id"))
+    role = Column(String(20))     # user / assistant / tool
+    content = Column(Text)
+    tool_calls = Column(JSON, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+# 上下文管理: 滑动窗口 + 摘要
+# 当历史超过 N 条时:
+#   1. 取最近 K 条完整消息
+#   2. 将前面的消息压缩为一条摘要
+#   3. 摘要由 LLM 生成 ("总结之前的对话：...")</pre>
+
+<h3>3. 快捷操作面板</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# AiPanel.vue 新增
+# 在聊天输入框上方显示快捷按钮
+
+- 📅 添加日程     → "明天下午3点在图书馆开会"
+- 📋 查看本周     → "我这周有什么安排？"
+- ⚡ 查找空闲时间 → "明天有什么空闲时间？"
+- 📊 周总结       → "总结一下这周的安排"
+- 📤 导出日程     → "导出我的日程"</pre>
+
+<h3>4. 智能日程分析（依赖 summarize_skill）</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# agent_engine 新增分析能力:
+# 用户问"我这个月工作多不多"时:
+#   1. query_events(本月) → 按 category 分组统计
+#   2. LLM 分析: 工作类占比、每天平均会议数、空闲日分布
+#   3. 返回自然语言分析 + 可选图表数据
+
+# 后端: 新增 /api/statistics 端点 (可选)
+# POST /api/statistics/summary
+#   { time_range, user_id, group_by: "category"|"day" }
+#   → { total_events, category_breakdown, daily_distribution }</pre>
+
+<h3>前端组件变化</h3>
+<table style="width:100%;border-collapse:collapse;margin:12px 0">
+  <tr style="background:#1a1a2e;color:#d4a373">
+    <th style="padding:8px;border:1px solid #333">组件</th>
+    <th style="padding:8px;border:1px solid #333">改动</th>
+  </tr>
+  <tr>
+    <td style="padding:8px;border:1px solid #333"><code>ChatMessages.vue</code></td>
+    <td style="padding:8px;border:1px solid #333">支持 SSE 事件 → 推理步骤卡片 + 打字机效果</td>
+  </tr>
+  <tr>
+    <td style="padding:8px;border:1px solid #333"><code>ChatInput.vue</code></td>
+    <td style="padding:8px;border:1px solid #333">上方添加快捷操作按钮行</td>
+  </tr>
+  <tr>
+    <td style="padding:8px;border:1px solid #333"><code>AiPanel.vue</code></td>
+    <td style="padding:8px;border:1px solid #333">会话列表 / 新建会话按钮</td>
+  </tr>
+</table>

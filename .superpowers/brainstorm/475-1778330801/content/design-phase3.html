@@ -1,0 +1,90 @@
+<h2>Phase 3: 隐私保护深化</h2>
+<p class="subtitle">满足纯本地 + 可选云端双模式</p>
+
+<h3>1. 认证系统 (配置化 JWT)</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# .env 配置
+DEPLOY_MODE=local          # local | cloud
+JWT_SECRET=                # cloud 模式必填
+JWT_EXPIRE_HOURS=24
+
+# auth/middleware.py
+# 一个条件性中间件:
+DEPLOY_MODE == "local"  → 跳过所有认证，user_id 固定为 1
+DEPLOY_MODE == "cloud"  → 启用 JWT 验证，从 token 提取 user_id
+
+# 登录端点
+POST /api/auth/login  → { username, password } → { token, user }
+POST /api/auth/register → { username, password }
+
+# 前端 useAuth.js
+# local 模式: 无登录页，直接进入
+# cloud 模式: 显示登录页，存储 token 到 localStorage</pre>
+
+<div class="section">
+  <h3>2. 数据加密 (cloud 模式启用)</h3>
+  <pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# 方案选择: 轻量级应用层加密
+# 依赖: cryptography 包
+
+# app/core/crypto.py
+from cryptography.fernet import Fernet
+import os
+
+_fernet = None
+
+def init_encryption(key: str = None):
+    """初始化加密器。cloud 模式自动启用"""
+    if key:
+        _fernet = Fernet(key.encode())
+    else:
+        _fernet = None  # local 模式不加密
+
+def encrypt_field(plain_text: str) -> str:
+    if not _fernet: return plain_text
+    return _fernet.encrypt(plain_text.encode()).decode()
+
+def decrypt_field(cipher_text: str) -> str:
+    if not _fernet: return cipher_text
+    return _fernet.decrypt(cipher_text.encode()).decode()
+
+# 适用范围: 日程 title、description 等敏感字段
+# 索引字段（id, start_time, end_time, user_id）不加密以支持查询
+# 加密对查询透明 — 应用层加解密，DB 存密文</pre>
+</div>
+
+<div class="section">
+  <h3>3. 数据生命周期管理</h3>
+  <pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# 自动归档过期的日程到 Summaries 表
+# 依赖: asyncio + APScheduler 或简单后台任务
+
+# db/lifecycle.py
+ARCHIVE_AFTER_DAYS = 30   # 过期多久后归档
+
+async def archive_expired_schedules():
+    """每日运行: 将过期日程压缩为摘要"""
+    expired = await get_expired_schedules()
+    # 按周分组 → LLM 生成摘要
+    for week_range, events in group_by_week(expired):
+        summary = await llm_generate_summary(events)
+        await save_summary(week_range, summary)
+        await soft_delete_events(events)  # 标记归档而非真删除
+
+# Summaries 表已有: time_range, content
+# 新增字段: is_archived (日程软删除标记)
+
+# 前端展示: 归档日程可查看但不可编辑
+# "查看历史归档" 按钮 → 读取 Summaries 表</pre>
+</div>
+
+<h3>4. 数据库 PostgreSQL 支持 (cloud 模式)</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# .env 配置已支持切换:
+DATABASE_URL=sqlite+aiosqlite:///./data/schedule.db
+# cloud 模式切换为:
+# DATABASE_URL=postgresql+asyncpg://user:pass@localhost/schedule
+
+# 但 SQLite 和 PostgreSQL 的迁移逻辑不同
+# 方案: 用 Alembic 统一管理迁移
+# 但考虑项目规模，保持当前手动迁移 + 适配 asyncpg 即可</pre>

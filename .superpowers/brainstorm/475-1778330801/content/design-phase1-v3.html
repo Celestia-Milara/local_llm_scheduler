@@ -1,0 +1,103 @@
+<h2>Phase 1: Skill 系统 (最终版)</h2>
+<p class="subtitle">Skill = 一个目录，内含 .md 指令 + scripts/ 脚本</p>
+
+<h3>目录结构</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+app/
+├── skill/
+│   ├── __init__.py                  ← 加载器入口
+│   ├── loader.py                    ← 目录扫描 + 解析 + 注册
+│   ├── hot_reload.py                ← watchfiles 热加载
+│   │
+│   └── skills/                      ← 技能目录
+│       │
+│       ├── schedule-management/     ← Skill 1: 日程管理
+│       │   ├── schedule-management.md
+│       │   ├── notice.md            ← 可选: 附加说明
+│       │   └── scripts/
+│       │       ├── add_event.py
+│       │       ├── query_events.py
+│       │       ├── update_event.py
+│       │       └── delete_event.py
+│       │
+│       ├── conflict-resolution/     ← Skill 2: 冲突处理
+│       │   ├── conflict-resolution.md
+│       │   └── scripts/
+│       │       ├── check_conflict.py
+│       │       └── find_free_slots.py
+│       │
+│       ├── weekly-summary/          ← Skill 3: 周总结 (新增)
+│       │   ├── weekly-summary.md
+│       │   └── scripts/
+│       │       └── generate_summary.py
+│       │
+│       └── import-export/           ← Skill 4: 导入导出 (新增)
+│           ├── import-export.md
+│           └── scripts/
+│               ├── import_ical.py
+│               └── export_csv.py</pre>
+
+<h3>一个 Skill 的完整示例</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# skill/skills/schedule-management/schedule-management.md
+
+---
+name: 日程管理
+triggers: ["添加日程", "查看安排", "修改", "删除"]
+---
+
+你是一个日程管理助手。以下规则必须遵守:
+
+## 创建日程
+- 必须先调用 check_conflict 检查冲突
+- 冲突时调用 find_free_slots 推荐替代时间
+- 用户确认后才执行 add_event
+- 时间格式: ISO 8601
+
+## 查询日程
+- 使用 query_events 按时间范围查询
+- 支持关键词、分类过滤
+
+## 修改/删除
+- 修改时间或地点后重新检查冲突
+- 使用 update_event / delete_event</pre>
+
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# skill/skills/schedule-management/scripts/add_event.py
+
+"""添加到数据库"""
+
+from app.db.database import AsyncSessionLocal
+from app.db.models import Schedule
+from datetime import datetime
+
+async def add_event(title: str, start_time: str, end_time: str,
+                    location: str = None, user_id: int = 1) -> dict:
+    async with AsyncSessionLocal() as session:
+        event = Schedule(
+            title=title,
+            start_time=datetime.fromisoformat(start_time),
+            end_time=datetime.fromisoformat(end_time),
+            location_ref=location,
+            user_id=user_id
+        )
+        session.add(event)
+        await session.commit()
+        return {"status": "OK", "event_id": event.id}</pre>
+
+<h3>加载器逻辑</h3>
+<pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px;line-height:1.6">
+# skill/loader.py
+# 启动时:
+#   1. 遍历 skills/ 下每个子目录
+#   2. 读取 *.md → 解析 frontmatter + body
+#   3. 扫描 scripts/ → 导入所有 .py 并用 @skill 注册
+#   4. 返回:
+#      - skill_prompts: str (所有 .md 合并后的系统提示词)
+#      - tools: list[dict] (LLM 可调用的工具定义)
+#      - executor: callable (按名称调用工具函数)
+
+# 热加载时:
+#   1. watchfiles 监听 skills/ 目录
+#   2. .md 变化 → 重新生成 skill_prompts
+#   3. .py 变化 → 重新 import → 更新 tools</pre>

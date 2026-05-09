@@ -1,0 +1,46 @@
+<h2>整体优化策略</h2>
+<p class="subtitle">5个维度都要覆盖，但以什么节奏推进？</p>
+
+<div class="options">
+  <div class="option" data-choice="depth" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>深度优先 —— "打磨现有"</h3>
+      <p>先把现有功能做到生产级质量：冲突确认 UI 补全、privacy_level 落地、流式输出、测试覆盖提升、数据生命周期管理。</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>好处</h4><ul><li>系统更稳定可靠</li><li>用户直接受益</li></ul></div>
+        <div class="cons"><h4>不足</h4><ul><li>新功能较少</li><li>Skill/MCP 架构延后</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="breadth" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>广度优先 —— "扩展边疆"</h3>
+      <p>优先增加新能力：Skill 插件系统、MCP 协议化、智能日程分析、多用户支持、对话历史搜索。</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>好处</h4><ul><li>功能更丰富</li><li>项目亮点更多</li></ul></div>
+        <div class="cons"><h4>不足</h4><ul><li>可能引入不稳定</li><li>测试债累积</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="theme" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>主题驱动 —— "按支柱推进"</h3>
+      <p>按项目三大支柱分阶段推进。每个阶段覆盖一个支柱及其相关维度：<br>
+      <strong>Phase 1:</strong> Skill 系统升级（插件化 + MCP）<br>
+      <strong>Phase 2:</strong> 本地 LLM 体验增强（流式 + Agent 透明化）<br>
+      <strong>Phase 3:</strong> 隐私保护深化（privacy_level + 数据生命周期）<br>
+      <strong>贯穿:</strong> UX 打磨 + 架构债修复穿插在所有阶段</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>好处</h4><ul><li>每个阶段有清晰主题</li><li>阶段性交付</li></ul></div>
+        <div class="cons"><h4>不足</h4><ul><li>跨阶段依赖需仔细管理</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div><｜end▁of▁thinking｜>
+
+<｜｜DSML｜｜tool_calls>
+<｜｜DSML｜｜invoke name="AskUserQuestion">
+<｜｜DSML｜｜parameter name="questions" string="false">[{"question": "整体优化策略你倾向哪种？或者你有自己的想法？", "options": [{"description": "先把现有功能打磨到生产级质量，再扩展新能力", "label": "深度优先（打磨现有）"}, {"description": "优先增加新能力和功能亮点", "label": "广度优先（扩展边疆）"}, {"description": "按 Skill → LLM → 隐私三大支柱分阶段推进", "label": "主题驱动（按支柱推进）"}], "header": "推进策略", "multiSelect": false}]

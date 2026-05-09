@@ -1,0 +1,65 @@
+<h2>整体架构设计</h2>
+<p class="subtitle">"设计时就支持两种部署模式，而非事后兼容"</p>
+
+<div class="section">
+  <h3>部署模式对比</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">纯本地模式</div>
+      <div class="mockup-body" style="padding:12px;font-size:14px;line-height:1.6">
+        <code>用户设备</code><br>
+        ├── Vue 前端 (静态)<br>
+        ├── FastAPI 后端<br>
+        ├── SQLite 数据库<br>
+        └── Ollama (localhost:11434)<br><br>
+        <span style="color:#6b7280">→ 无需认证，无需网络</span>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">云端部署模式</div>
+      <div class="mockup-body" style="padding:12px;font-size:14px;line-height:1.6">
+        <code>云服务器</code><br>
+        ├── Vue 前端 (静态)<br>
+        ├── FastAPI 后端<br>
+        ├── PostgreSQL<br>
+        ├── Ollama<br>
+        └── HTTPS + JWT<br><br>
+        <span style="color:#6b7280">→ 用户自部署 Ollama 或服务端内置</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>配置化开关</h3>
+  <p>一个环境变量控制部署模式：</p>
+  <pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px">
+# .env
+DEPLOY_MODE=local          # local | cloud
+# cloud 模式下自动启用:
+# - JWT 认证中间件
+# - HTTPS 强制
+# - 数据加密
+# - 多用户数据隔离</pre>
+</div>
+
+<div class="section">
+  <h3>总体架构变化</h3>
+  <pre style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-size:13px">
+当前:                             优化后:
+app/                              app/
+├── core/agent_engine.py          ├── core/agent_engine.py
+├── mcp/calendar_skill.py         ├── skill/                    ← 新增: 插件式 Skill 目录
+├── services/location_service.py  │   ├── __init__.py           ← @skill 装饰器
+├── db/database.py                │   ├── registry.py           ← Skill 注册器 + 热加载
+├── db/models.py                  │   ├── calendar_skill.py     ← 现有迁移
+└── main.py                       │   ├── summarize_skill.py    ← 新增: 自动总结
+                                  │   └── import_export.py     ← 新增: 导入导出
+                                  ├── services/location_service.py
+                                  ├── auth/                    ← 新增: 认证模块
+                                  │   ├── jwt.py
+                                  │   └── middleware.py        ← 条件性中间件
+                                  ├── db/database.py
+                                  ├── db/models.py
+                                  └── main.py</pre>
+</div>
