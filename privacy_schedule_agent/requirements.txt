@@ -6,3 +6,4 @@ mcp
 pydantic-settings
 python-dotenv
 aiosqlite
+watchfiles
