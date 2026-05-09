@@ -46,11 +46,15 @@ def get_available_functions() -> Dict[str, Callable]:
 
 
 async def execute_tool(name: str, args: dict) -> str:
-    """按名称执行 Skill，返回 JSON 字符串"""
+    """按名称执行 Skill（所有 Skill 函数均为 async），返回 JSON 字符串"""
     if name not in _SKILL_REGISTRY:
         return json.dumps({"status": "ERROR", "message": f"未知的工具名称: {name}"})
     func = _SKILL_REGISTRY[name]["function"]
-    return await func(**args)
+    try:
+        return await func(**args)
+    except Exception as e:
+        logger.exception(f"Error executing skill '{name}': {e}")
+        return json.dumps({"status": "ERROR", "message": f"工具执行错误: {str(e)}"})
 
 
 def clear_registry():

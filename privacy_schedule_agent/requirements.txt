@@ -6,4 +6,5 @@ mcp
 pydantic-settings
 python-dotenv
 aiosqlite
+pytest-asyncio
 watchfiles
