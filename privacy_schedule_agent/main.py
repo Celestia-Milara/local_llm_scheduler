@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from app.db.database import init_db, AsyncSessionLocal
 from app.db.models import Schedule
 from app.core.agent_engine import run_chat
-from app.mcp.calendar_skill import check_conflict, CODE_WARN
+from app.skill.skills.schedule_management.scripts.conflict import check_conflict, CODE_WARN
 
 # 加载环境变量
 load_dotenv()
