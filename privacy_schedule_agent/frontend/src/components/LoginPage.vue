@@ -28,20 +28,27 @@
               @keyup.enter="handleLogin">
           </div>
           <p v-if="error" class="text-copper-500 text-sm text-center">{{ error }}</p>
-          <button @click="handleLogin"
-            class="w-full bg-copper-500 hover:bg-copper-400 active:bg-copper-600 rounded-xl py-2.5 text-sm font-medium text-white transition-all shadow-lg shadow-copper-500/20">
-            登录
+          <button @click="handleLogin" :disabled="loading"
+            class="w-full bg-copper-500 hover:bg-copper-400 active:bg-copper-600 disabled:opacity-50 rounded-xl py-2.5 text-sm font-medium text-white transition-all shadow-lg shadow-copper-500/20">
+            {{ loading ? '处理中...' : isRegisterMode ? '注册并登录' : '登录' }}
           </button>
+          <p class="text-center text-xs text-warm-400">
+            <button @click="toggleMode" class="hover:text-copper-500 transition-colors">
+              {{ isRegisterMode ? '已有账号？去登录' : '没有账号？去注册' }}
+            </button>
+          </p>
         </div>
       </div>
 
-      <!-- Privacy assurance -->
+      <!-- Mode indicator & privacy -->
       <div class="flex items-center justify-center gap-1.5 mt-6">
         <svg class="w-3 h-3 text-moss-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
         </svg>
         <p class="text-warm-500 text-xs tracking-wide">
-          <span class="text-moss-500">/</span> 数据仅存于本地设备，不会上传至云端
+          <span class="text-moss-500">/</span>
+          <template v-if="isCloud">连接到云端服务 · 数据加密传输</template>
+          <template v-else>数据仅存于本地设备，不会上传至云端</template>
         </p>
       </div>
     </div>
@@ -52,19 +59,37 @@
 import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 
-const { login } = useAuth()
+const { login, register, isCloud } = useAuth()
 const emit = defineEmits(['login-success'])
 
 const username = ref('')
 const password = ref('')
 const error = ref('')
+const isRegisterMode = ref(false)
+const loading = ref(false)
 
-function handleLogin() {
+async function handleLogin() {
   error.value = ''
-  if (login(username.value, password.value)) {
-    emit('login-success')
-  } else {
-    error.value = '用户名或密码错误'
+  loading.value = true
+  try {
+    let ok
+    if (isRegisterMode.value) {
+      ok = await register(username.value, password.value)
+      if (!ok) error.value = '注册失败，用户名可能已存在'
+    } else {
+      ok = await login(username.value, password.value)
+      if (!ok) error.value = '用户名或密码错误'
+    }
+    if (ok) emit('login-success')
+  } catch {
+    error.value = '操作失败，请重试'
+  } finally {
+    loading.value = false
   }
+}
+
+function toggleMode() {
+  isRegisterMode.value = !isRegisterMode.value
+  error.value = ''
 }
 </script>

@@ -20,12 +20,17 @@
 - 保持“隐私优先”设计：LLM 推理应走本地 Ollama。
 - 涉及日程创建逻辑时，保持“冲突先检查、冲突需明确确认后保存”的业务约束。
 - 修改用户可见文案时，保持简体中文风格一致。
+- SSE 流式端点（`/chat/stream`）使用 `text/event-stream` 格式，事件类型为 `step` / `token` / `done`。
+- 新增 Skill 时遵循目录结构：`app/skill/skills/<skill-name>/` 下放 `.md` 指令 + `scripts/` 子目录。
+- 涉及隐私字段（`title`、`description`）写入数据库前使用 `app.core.crypto.encrypt_dict()` 加密。
 
 ### Don't
 
 - 不要默认接入外部云端 LLM API 替换本地推理链路。
 - 不要绕过冲突确认机制直接落库。
 - 不要在无必要情况下改动与当前任务无关的模块。
+- 不要在 `DEPLOY_MODE=local` 时启用 JWT 认证中间件（纯本地单用户无需认证）。
+- 不要修改加密字段的索引列（id、时间、user_id 不加密）。
 
 ## 4. 变更与验证要求
 

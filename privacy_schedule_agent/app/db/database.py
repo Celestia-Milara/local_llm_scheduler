@@ -68,10 +68,17 @@ async def _migrate_schedule_columns(conn):
         )
         logger.info("Migration: added recurrence columns to schedules table")
 
+    # Phase 3: is_archived
+    if 'is_archived' not in existing_columns:
+        await conn.execute(
+            text("ALTER TABLE schedules ADD COLUMN is_archived INTEGER DEFAULT 0")
+        )
+        logger.info("Migration: added column 'is_archived' to schedules table")
+
 
 # 数据库初始化函数
 async def init_db():
     async with engine.begin() as conn:
-        from app.db.models import Schedule, Summary  # 确保模型被加载
+        from app.db.models import Schedule, Summary, ChatSession, ChatMessage, User  # 确保模型被加载
         await conn.run_sync(Base.metadata.create_all)
         await _migrate_schedule_columns(conn)

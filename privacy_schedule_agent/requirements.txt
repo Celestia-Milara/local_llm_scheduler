@@ -8,3 +8,5 @@ python-dotenv
 aiosqlite
 pytest-asyncio
 watchfiles
+pyjwt
+cryptography
