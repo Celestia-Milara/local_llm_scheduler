@@ -42,6 +42,30 @@
             class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 placeholder-warm-400 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
 
           <div>
+            <label class="text-xs text-warm-400 mb-1 block">分类</label>
+            <select v-model="form.category"
+              class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+              <option value="">无分类</option>
+              <option value="工作">工作</option>
+              <option value="学习">学习</option>
+              <option value="生活">生活</option>
+            </select>
+          </div>
+
+          <input v-model="form.description" placeholder="描述（可选）"
+            class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 placeholder-warm-400 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+
+          <div>
+            <label class="text-xs text-warm-400 mb-1 block">隐私级别</label>
+            <select v-model="form.privacy_level"
+              class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+              <option :value="1">公开</option>
+              <option :value="2">内部</option>
+              <option :value="3">绝密</option>
+            </select>
+          </div>
+
+          <div>
             <label class="text-xs text-warm-400 mb-1 block">重复</label>
             <select v-model="form.recurrence_rule"
               class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
@@ -78,7 +102,7 @@ import { useAuth } from '../composables/useAuth.js'
 const { fetchMonth } = useSchedules()
 const { userId } = useAuth()
 const showDialog = ref(false)
-const form = reactive({ title: '', location: '', recurrence_rule: '' })
+const form = reactive({ title: '', location: '', recurrence_rule: '', category: '', description: '', privacy_level: 1 })
 const formStartDate = ref('')
 const formStartTime = ref('')
 const formEndDate = ref('')
@@ -86,7 +110,7 @@ const formEndTime = ref('')
 const formRecurrenceEnd = ref('')
 
 function resetForm() {
-  form.title = ''; form.location = ''; form.recurrence_rule = ''
+  form.title = ''; form.location = ''; form.recurrence_rule = ''; form.category = ''; form.description = ''; form.privacy_level = 1
   formStartDate.value = ''; formStartTime.value = ''
   formEndDate.value = ''; formEndTime.value = ''
   formRecurrenceEnd.value = ''
@@ -102,6 +126,9 @@ async function handleCreate() {
     start_time: startTime,
     end_time: endTime,
     location: form.location || null,
+    category: form.category || null,
+    description: form.description || null,
+    privacy_level: form.privacy_level || 1,
     user_id: userId.value
   }
   if (form.recurrence_rule) {

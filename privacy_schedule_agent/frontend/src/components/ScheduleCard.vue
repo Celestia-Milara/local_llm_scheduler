@@ -13,6 +13,10 @@
               :class="categoryClass(schedule.category)">
               {{ schedule.category }}
             </span>
+            <span v-if="schedule.privacy_level && schedule.privacy_level > 1"
+              class="text-[10px]" :title="privacyLabel(schedule.privacy_level)">
+              {{ schedule.privacy_level === 3 ? '🔒' : '🔐' }}
+            </span>
             <span v-if="schedule.recurrence_rule"
               class="text-[9px] text-warm-400 font-medium" title="重复日程">↻</span>
           </div>
@@ -76,5 +80,10 @@ function categoryClass(cat) {
     '生活': 'bg-warm-500/10 text-warm-300 border-warm-500/20'
   }
   return map[cat] || 'text-warm-400 bg-warm-500/10 border-warm-500/20'
+}
+
+function privacyLabel(level) {
+  const map = { 1: '公开', 2: '内部', 3: '绝密' }
+  return map[level] || '公开'
 }
 </script>

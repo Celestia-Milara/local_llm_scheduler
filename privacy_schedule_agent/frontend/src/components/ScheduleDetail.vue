@@ -14,6 +14,11 @@
                   <span v-if="schedule.category"
                     class="text-[10px] px-2 py-0.5 rounded-full border shrink-0"
                     :class="categoryClass(schedule.category)">{{ schedule.category }}</span>
+                  <span v-if="schedule.privacy_level && schedule.privacy_level > 1"
+                    class="text-[10px] px-2 py-0.5 rounded-full border shrink-0"
+                    :class="privacyClass(schedule.privacy_level)">
+                    {{ privacyLabel(schedule.privacy_level) }}
+                  </span>
                 </div>
                 <div class="flex items-center gap-2">
                   <span v-if="schedule.status === 'conflicted'"
@@ -107,6 +112,16 @@
                   <option value="工作">工作</option>
                   <option value="学习">学习</option>
                   <option value="生活">生活</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-xs text-warm-400 mb-1 block">隐私级别</label>
+                <select v-model="editForm.privacy_level"
+                  class="w-full bg-warm-50 border border-warm-200 rounded-xl px-4 py-2.5 text-sm text-warm-700 focus:outline-none focus:ring-1 focus:ring-copper-400/50">
+                  <option :value="1">公开</option>
+                  <option :value="2">内部</option>
+                  <option :value="3">绝密</option>
                 </select>
               </div>
 
@@ -211,7 +226,7 @@ const { userId } = useAuth()
 
 const mode = ref('view')
 
-const editForm = reactive({ title: '', category: '', location: '', description: '', recurrence_rule: '' })
+const editForm = reactive({ title: '', category: '', location: '', description: '', recurrence_rule: '', privacy_level: 1 })
 const editStartDate = ref('')
 const editStartTime = ref('')
 const editEndDate = ref('')
@@ -232,6 +247,7 @@ function initEditForm() {
   editForm.location = props.schedule.location || ''
   editForm.description = props.schedule.description || ''
   editForm.recurrence_rule = props.schedule.recurrence_rule || ''
+  editForm.privacy_level = props.schedule.privacy_level || 1
   const [sd, st] = parseDatetime(props.schedule.start_time)
   editStartDate.value = sd
   editStartTime.value = st
@@ -276,6 +292,7 @@ async function saveEdit() {
     category: editForm.category || null,
     location: editForm.location || null,
     description: editForm.description || null,
+    privacy_level: editForm.privacy_level || 1,
     start_time: `${editStartDate.value} ${editStartTime.value}:00`,
     end_time: `${editEndDate.value} ${editEndTime.value}:00`,
     recurrence_rule: editForm.recurrence_rule || null,
@@ -304,5 +321,19 @@ function categoryClass(cat) {
     '生活': 'bg-copper-400/10 text-copper-600 border-copper-400/20'
   }
   return map[cat] || 'text-warm-500 bg-warm-400/10 border-warm-400/20'
+}
+
+function privacyLabel(level) {
+  const map = { 1: '公开', 2: '内部', 3: '绝密' }
+  return map[level] || '公开'
+}
+
+function privacyClass(level) {
+  const map = {
+    1: 'bg-green-400/10 text-green-600 border-green-400/20',
+    2: 'bg-amber-400/10 text-amber-600 border-amber-400/20',
+    3: 'bg-rose-400/10 text-rose-600 border-rose-400/20'
+  }
+  return map[level] || ''
 }
 </script>
