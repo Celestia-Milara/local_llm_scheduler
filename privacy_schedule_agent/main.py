@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from app.db.database import init_db, AsyncSessionLocal
 from app.db.models import Schedule, ChatSession, ChatMessage, User
 from app.core.agent_engine import run_chat, run_chat_stream
-from app.core.crypto import encrypt_dict, decrypt_dict
+from app.core.crypto import encrypt_dict, decrypt_dict, encrypt_field
 from app.auth.jwt import create_token, verify_token, get_user_id_from_request
 from app.auth.middleware import auth_condition_middleware
 from app.skill.skills.schedule_management.scripts.conflict import check_conflict, CODE_WARN
@@ -91,6 +91,7 @@ class ScheduleUpdateRequest(BaseModel):
     recurrence_rule: Optional[str] = None
     recurrence_end: Optional[str] = None
     confirm_conflict: Optional[bool] = False
+    privacy_level: Optional[int] = None
 
 
 class ScheduleCreateRequest(BaseModel):
@@ -104,6 +105,7 @@ class ScheduleCreateRequest(BaseModel):
     recurrence_rule: Optional[str] = None
     recurrence_end: Optional[str] = None
     confirm_conflict: Optional[bool] = False
+    privacy_level: Optional[int] = 1
 
 
 def _parse_conflict_result(conflict_json: str):
@@ -297,7 +299,7 @@ async def get_schedules(start: str = None, end: str = None, user_id: int = None)
         result = await session.execute(stmt)
         schedules = result.scalars().all()
         return [
-            {
+            decrypt_dict({
                 "id": s.id,
                 "title": s.title,
                 "start_time": s.start_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -308,8 +310,9 @@ async def get_schedules(start: str = None, end: str = None, user_id: int = None)
                 "status": s.status,
                 "user_id": s.user_id,
                 "recurrence_rule": s.recurrence_rule,
-                "recurrence_end": s.recurrence_end.strftime("%Y-%m-%d %H:%M:%S") if s.recurrence_end else None
-            }
+                "recurrence_end": s.recurrence_end.strftime("%Y-%m-%d %H:%M:%S") if s.recurrence_end else None,
+                "privacy_level": s.privacy_level
+            })
             for s in schedules
         ]
 
@@ -323,7 +326,7 @@ async def get_schedule(event_id: int):
         s = result.scalar_one_or_none()
         if not s:
             raise HTTPException(status_code=404, detail=f"未找到ID为 {event_id} 的日程")
-        return {
+        return decrypt_dict({
             "id": s.id,
             "title": s.title,
             "start_time": s.start_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -333,8 +336,9 @@ async def get_schedule(event_id: int):
             "category": s.category,
             "status": s.status,
             "recurrence_rule": s.recurrence_rule,
-            "recurrence_end": s.recurrence_end.strftime("%Y-%m-%d %H:%M:%S") if s.recurrence_end else None
-        }
+            "recurrence_end": s.recurrence_end.strftime("%Y-%m-%d %H:%M:%S") if s.recurrence_end else None,
+            "privacy_level": s.privacy_level
+        })
 
 
 @app.put("/schedules/{event_id}")
@@ -387,8 +391,12 @@ async def update_schedule(event_id: int, req: ScheduleUpdateRequest):
             event.start_time = new_start
             event.end_time = new_end
             event.location_ref = new_location
+            if req.title is not None:
+                event.title = encrypt_field(req.title)
             if req.description is not None:
-                event.description = req.description
+                event.description = encrypt_field(req.description)
+            if req.privacy_level is not None:
+                event.privacy_level = req.privacy_level
             if req.category is not None:
                 event.category = req.category
             if req.recurrence_rule is not None:
@@ -441,17 +449,20 @@ async def create_schedule(req: ScheduleCreateRequest):
                     },
                 )
 
+            event_data = {"title": req.title, "description": req.description}
+            encrypt_dict(event_data)
             event = Schedule(
                 user_id=req.user_id or 1,
-                title=req.title,
+                title=event_data["title"],
                 start_time=dt_start,
                 end_time=dt_end,
                 location_ref=req.location or None,
-                description=req.description or None,
+                description=event_data["description"],
                 category=req.category or None,
                 status="conflicted" if conflict_status == CODE_WARN else "confirmed",
                 recurrence_rule=req.recurrence_rule or None,
-                recurrence_end=datetime.strptime(req.recurrence_end, "%Y-%m-%d %H:%M:%S") if req.recurrence_end else None
+                recurrence_end=datetime.strptime(req.recurrence_end, "%Y-%m-%d %H:%M:%S") if req.recurrence_end else None,
+                privacy_level=req.privacy_level or 1
             )
             session.add(event)
             await session.commit()
@@ -493,7 +504,7 @@ async def export_schedules_json(user_id: int = None):
         result = await session.execute(stmt)
         schedules = result.scalars().all()
         data = [
-            {
+            decrypt_dict({
                 "id": s.id,
                 "title": s.title,
                 "start_time": s.start_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -506,7 +517,7 @@ async def export_schedules_json(user_id: int = None):
                 "user_id": s.user_id,
                 "recurrence_rule": s.recurrence_rule,
                 "recurrence_end": s.recurrence_end.strftime("%Y-%m-%d %H:%M:%S") if s.recurrence_end else None
-            }
+            })
             for s in schedules
         ]
     json_str = json.dumps(data, ensure_ascii=False, indent=2)

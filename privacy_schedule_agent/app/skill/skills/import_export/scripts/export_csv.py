@@ -7,6 +7,7 @@ from app.skill import skill
 from sqlalchemy import select
 from app.db.database import AsyncSessionLocal
 from app.db.models import Schedule
+from app.core.crypto import decrypt_field
 
 
 @skill(
@@ -39,12 +40,12 @@ async def export_csv(start_time: str = None, end_time: str = None) -> str:
     writer.writerow(["标题", "开始时间", "结束时间", "地点", "分类", "描述", "状态"])
     for e in events:
         writer.writerow([
-            e.title,
+            decrypt_field(e.title) or "",
             e.start_time.strftime("%Y-%m-%d %H:%M:%S"),
             e.end_time.strftime("%Y-%m-%d %H:%M:%S"),
             e.location_ref or "",
             e.category or "",
-            e.description or "",
+            decrypt_field(e.description) or "",
             e.status
         ])
 

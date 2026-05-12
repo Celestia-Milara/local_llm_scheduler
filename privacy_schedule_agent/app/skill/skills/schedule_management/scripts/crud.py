@@ -7,6 +7,7 @@ from sqlalchemy import select, and_
 from app.db.database import AsyncSessionLocal
 from app.db.models import Schedule
 from app.skill import skill
+from app.core.crypto import encrypt_dict, decrypt_dict, encrypt_field
 from app.skill.skills.schedule_management.scripts.conflict import check_conflict, CODE_OK, CODE_WARN
 
 logger = logging.getLogger(__name__)
@@ -25,14 +26,16 @@ CODE_ERROR = "ERROR"
             "location": {"type": "string", "description": "地点"},
             "description": {"type": "string", "description": "日程描述或备注"},
             "category": {"type": "string", "description": "日程分类（如：工作、学习、生活）"},
-            "status": {"type": "string", "description": "日程状态，默认为 'confirmed'。强行保存冲突日程时设为 'conflicted'"}
+            "status": {"type": "string", "description": "日程状态，默认为 'confirmed'。强行保存冲突日程时设为 'conflicted'"},
+            "privacy_level": {"type": "integer", "description": "隐私等级：1公开/2内部/3绝密"}
         },
         "required": ["title", "start_time", "end_time", "location"],
     }
 )
 async def add_event(title: str, start_time: str, end_time: str, location: str,
                     description: str = None, category: str = None,
-                    status: str = "confirmed", user_id: int = 1) -> str:
+                    status: str = "confirmed", user_id: int = 1,
+                    privacy_level: int = 1) -> str:
     try:
         dt_start = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
         dt_end = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
@@ -41,11 +44,14 @@ async def add_event(title: str, start_time: str, end_time: str, location: str,
 
     async with AsyncSessionLocal() as session:
         try:
+            title_enc = encrypt_field(title)
+            description_enc = encrypt_field(description)
             new_event = Schedule(
-                user_id=user_id, title=title,
+                user_id=user_id, title=title_enc,
                 start_time=dt_start, end_time=dt_end,
-                location_ref=location, description=description,
-                category=category, status=status
+                location_ref=location, description=description_enc,
+                category=category, status=status,
+                privacy_level=privacy_level
             )
             session.add(new_event)
             await session.commit()
@@ -102,13 +108,14 @@ async def query_events(start_time: str = None, end_time: str = None,
             "status": CODE_OK,
             "message": f"找到 {len(events)} 条日程" if events else "未找到匹配的日程",
             "events": [
-                {
+                decrypt_dict({
                     "id": e.id, "title": e.title,
                     "start_time": e.start_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "end_time": e.end_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "location": e.location_ref, "description": e.description,
-                    "category": e.category, "status": e.status
-                } for e in events
+                    "category": e.category, "status": e.status,
+                    "privacy_level": e.privacy_level
+                }) for e in events
             ]
         }, ensure_ascii=False)
 
@@ -125,7 +132,8 @@ async def query_events(start_time: str = None, end_time: str = None,
             "end_time": {"type": "string", "description": "新结束时间 (YYYY-MM-DD HH:MM:SS)"},
             "location": {"type": "string", "description": "新地点"},
             "description": {"type": "string", "description": "新描述"},
-            "category": {"type": "string", "description": "新分类"}
+            "category": {"type": "string", "description": "新分类"},
+            "privacy_level": {"type": "integer", "description": "隐私等级：1公开/2内部/3绝密"}
         },
         "required": ["event_id"],
     }
@@ -133,7 +141,8 @@ async def query_events(start_time: str = None, end_time: str = None,
 async def update_event(event_id: int, title: str = None,
                        start_time: str = None, end_time: str = None,
                        location: str = None, description: str = None,
-                       category: str = None) -> str:
+                       category: str = None,
+                       privacy_level: int = None) -> str:
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(select(Schedule).where(Schedule.id == event_id))
@@ -147,7 +156,7 @@ async def update_event(event_id: int, title: str = None,
             time_or_location_changed = False
 
             if title is not None:
-                event.title = title
+                event.title = encrypt_field(title)
             if start_time is not None:
                 new_start = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
                 event.start_time = new_start
@@ -160,9 +169,11 @@ async def update_event(event_id: int, title: str = None,
                 event.location_ref = location
                 time_or_location_changed = True
             if description is not None:
-                event.description = description
+                event.description = encrypt_field(description)
             if category is not None:
                 event.category = category
+            if privacy_level is not None:
+                event.privacy_level = privacy_level
 
             if time_or_location_changed:
                 conflict_result = await check_conflict(
