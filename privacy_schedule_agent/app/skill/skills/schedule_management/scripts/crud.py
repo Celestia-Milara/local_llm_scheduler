@@ -189,7 +189,8 @@ async def update_event(event_id: int, title: str = None,
                     event.status = "confirmed"
 
             await session.commit()
-            result_data = {"status": CODE_OK, "message": f"日程 '{event.title}' 已更新", "event_id": event.id}
+            display_title = decrypt_field(event.title) or event.title
+            result_data = {"status": CODE_OK, "message": f"日程 '{display_title}' 已更新", "event_id": event.id}
             return json.dumps(result_data, ensure_ascii=False)
         except ValueError as e:
             return json.dumps({"status": CODE_ERROR, "message": f"时间格式不正确: {str(e)}"}, ensure_ascii=False)
@@ -216,7 +217,7 @@ async def delete_event(event_id: int) -> str:
             event = result.scalar_one_or_none()
             if not event:
                 return json.dumps({"status": CODE_ERROR, "message": f"未找到ID为 {event_id} 的日程"}, ensure_ascii=False)
-            title = event.title
+            title = decrypt_field(event.title) or event.title
             await session.delete(event)
             await session.commit()
             return json.dumps({"status": CODE_OK, "message": f"已删除日程: {title}", "event_id": event_id}, ensure_ascii=False)

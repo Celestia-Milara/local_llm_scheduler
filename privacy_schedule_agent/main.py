@@ -408,7 +408,7 @@ async def update_schedule(event_id: int, req: ScheduleUpdateRequest):
 
             await session.commit()
 
-            return {
+            return decrypt_dict({
                 "id": event.id,
                 "title": event.title,
                 "start_time": event.start_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -418,7 +418,7 @@ async def update_schedule(event_id: int, req: ScheduleUpdateRequest):
                 "category": event.category,
                 "status": event.status,
                 "conflicts": conflicts if event.status == "conflicted" else []
-            }
+            })
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"时间格式不正确: {str(e)}")
 
