@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from app.db.database import init_db, AsyncSessionLocal
 from app.db.models import Schedule, ChatSession, ChatMessage, User
 from app.core.agent_engine import run_chat, run_chat_stream
-from app.core.crypto import encrypt_dict, decrypt_dict, encrypt_field
+from app.core.crypto import encrypt_dict, decrypt_dict, decrypt_field, encrypt_field
 from app.auth.jwt import create_token, verify_token, get_user_id_from_request
 from app.auth.middleware import auth_condition_middleware
 from app.skill.skills.schedule_management.scripts.conflict import check_conflict, CODE_WARN
@@ -467,14 +467,17 @@ async def create_schedule(req: ScheduleCreateRequest):
             session.add(event)
             await session.commit()
             await session.refresh(event)
-            return {
+            return decrypt_dict({
                 "id": event.id,
                 "title": event.title,
                 "start_time": event.start_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "end_time": event.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                "description": event.description,
+                "category": event.category,
+                "privacy_level": event.privacy_level,
                 "status": event.status,
                 "conflicts": conflicts if event.status == "conflicted" else []
-            }
+            })
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"时间格式不正确: {str(e)}")
 
@@ -491,7 +494,7 @@ async def delete_schedule(event_id: int):
 
         await session.delete(event)
         await session.commit()
-        return {"status": "success", "message": f"已删除日程: {event.title}"}
+        return {"status": "success", "message": f"已删除日程: {decrypt_field(event.title) or event.title}"}
 
 
 @app.get("/schedules/export/json")

@@ -7,7 +7,7 @@ from sqlalchemy import select, and_
 from app.db.database import AsyncSessionLocal
 from app.db.models import Schedule
 from app.skill import skill
-from app.core.crypto import encrypt_dict, decrypt_dict, encrypt_field
+from app.core.crypto import encrypt_dict, decrypt_dict, encrypt_field, decrypt_field
 from app.skill.skills.schedule_management.scripts.conflict import check_conflict, CODE_OK, CODE_WARN
 
 logger = logging.getLogger(__name__)
