@@ -162,3 +162,6 @@ data/*.log
 
 # Local/external reference repositories
 awesome-design-md/
+
+# Git worktrees (local)
+.worktrees/
