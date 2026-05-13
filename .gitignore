@@ -165,3 +165,8 @@ awesome-design-md/
 
 # Git worktrees (local)
 .worktrees/
+
+# Local Copilot/Claude artifacts
+.claude/settings.local.json
+.claude/skills/
+calendar-design-mockup.html
