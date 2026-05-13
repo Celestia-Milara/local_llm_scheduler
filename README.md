@@ -1,5 +1,7 @@
 # Local LLM Privacy Scheduler
 
+中文说明：[`README_CN.md`](README_CN.md)
+
 A privacy-first scheduling system powered by a **local** LLM and a **skill/tool** framework.
 
 - **Local inference**: designed to run with Ollama (no cloud LLM by default)
