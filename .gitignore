@@ -157,8 +157,9 @@ data/*.db
 data/*.sqlite
 data/*.log
 
-# Keep project docs in repository
-# (CLAUDE.md references docs/project-reference.md as required reference)
+# Local artifacts (do not commit)
+docs/
+.superpowers/
 
 # Local/external reference repositories
 awesome-design-md/

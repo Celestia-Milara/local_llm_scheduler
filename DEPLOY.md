@@ -116,4 +116,4 @@ python main.py
 - 首次运行时，后端自动在 `data/` 目录下创建 `schedule.db` SQLite 数据库。
 - 后端服务必须保持运行，前端才能正常进行 AI 对话和日程数据交互。
 - 所有 LLM 推理均在本地完成（Ollama），数据不出设备。
-- 查看完整 API 路由和架构文档：`docs/project-reference.md`
+- 查看完整 API 路由和架构文档：`design.md`
