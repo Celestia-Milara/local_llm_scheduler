@@ -110,5 +110,99 @@ class CategoriesApiLocalTest(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class CategoriesApiCloudTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._old_cwd = Path.cwd()
+        cls._env_backup = {
+            "DATABASE_URL": os.environ.get("DATABASE_URL"),
+            "DEPLOY_MODE": os.environ.get("DEPLOY_MODE"),
+            "JWT_SECRET": os.environ.get("JWT_SECRET"),
+        }
+        cls.tmp_dir = tempfile.TemporaryDirectory()
+        cls.db_file = Path(cls.tmp_dir.name) / "test_categories_cloud.db"
+
+        os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{cls.db_file}"
+        os.environ["DEPLOY_MODE"] = "cloud"
+        os.environ["JWT_SECRET"] = "test-jwt-secret"
+
+        os.chdir(PROJECT_DIR)
+        for module_name in list(sys.modules.keys()):
+            if module_name == "main" or module_name.startswith("app."):
+                del sys.modules[module_name]
+
+        main_module = importlib.import_module("main")
+        importlib.reload(main_module)
+        cls.client = TestClient(main_module.app)
+        cls.client.__enter__()
+
+        from app.auth.jwt import create_token
+
+        cls._make_token = staticmethod(lambda uid: create_token(uid, f"user{uid}"))
+
+        with sqlite3.connect(cls.db_file) as conn:
+            conn.executescript(
+                """
+                INSERT INTO schedules (
+                    user_id, title, start_time, end_time, location_ref, description,
+                    category, status, privacy_level, recurrence_rule, recurrence_end,
+                    is_archived, summary_id
+                ) VALUES
+                    (1, '工作日程', '2026-05-10 09:00:00', '2026-05-10 10:00:00', NULL, NULL, '工作', 'confirmed', 1, NULL, NULL, 0, NULL),
+                    (2, '其他用户工作日程', '2026-05-10 15:00:00', '2026-05-10 16:00:00', NULL, NULL, '工作', 'confirmed', 1, NULL, NULL, 0, NULL);
+                """
+            )
+            conn.commit()
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            cls.client.__exit__(None, None, None)
+            from app.db.database import engine
+
+            asyncio.run(engine.dispose())
+        finally:
+            try:
+                cls.tmp_dir.cleanup()
+            except PermissionError as exc:
+                warnings.warn(
+                    f"Temporary directory cleanup failed for {cls.tmp_dir.name}: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                gc.collect()
+                try:
+                    cls.tmp_dir.cleanup()
+                except PermissionError:
+                    raise
+            finally:
+                for key, value in cls._env_backup.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+                os.chdir(cls._old_cwd)
+
+    def test_cloud_get_categories_requires_jwt(self):
+        resp = self.client.get("/api/categories")
+        self.assertEqual(resp.status_code, 401)
+
+        resp2 = self.client.get(
+            "/api/categories",
+            headers={"Authorization": f"Bearer {self._make_token(1)}"},
+        )
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp2.json()["categories"][1]["key"], "工作")
+
+    def test_cloud_stats_uses_jwt_user_id(self):
+        resp = self.client.get(
+            "/schedules/categories/stats",
+            params={"start": "2026-05-10", "end": "2026-05-11", "user_id": 1},
+            headers={"Authorization": f"Bearer {self._make_token(2)}"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {"counts": {"": 1, "工作": 1, "学习": 0, "生活": 0}})
+
+
 if __name__ == "__main__":
     unittest.main()
