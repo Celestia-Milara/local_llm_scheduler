@@ -64,15 +64,12 @@ class CategoriesApiLocalTest(unittest.TestCase):
     def test_get_categories_returns_exact_list(self):
         resp = self.client.get("/api/categories")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(
-            resp.json(),
-            [
-                {"key": "", "label": "全部", "color": "#818cf8"},
-                {"key": "工作", "label": "工作", "color": "#fbbf24"},
-                {"key": "学习", "label": "学习", "color": "#60a5fa"},
-                {"key": "生活", "label": "生活", "color": "#f472b6"},
-            ],
-        )
+        self.assertEqual(resp.json(), {"categories": [
+            {"key": "", "label": "全部", "color": "#818cf8"},
+            {"key": "工作", "label": "工作", "color": "#fbbf24"},
+            {"key": "学习", "label": "学习", "color": "#60a5fa"},
+            {"key": "生活", "label": "生活", "color": "#f472b6"},
+        ]})
 
     def test_get_categories_stats_returns_counts(self):
         resp = self.client.get(
@@ -80,7 +77,7 @@ class CategoriesApiLocalTest(unittest.TestCase):
             params={"start": "2026-05-10", "end": "2026-05-11", "user_id": 1},
         )
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), {"": 4, "工作": 1, "学习": 1, "生活": 0})
+        self.assertEqual(resp.json(), {"counts": {"": 4, "工作": 1, "学习": 1, "生活": 0}})
 
     def test_get_categories_stats_missing_params_returns_400(self):
         resp = self.client.get("/schedules/categories/stats", params={"start": "2026-05-10"})
