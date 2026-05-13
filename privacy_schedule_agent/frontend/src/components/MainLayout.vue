@@ -1,9 +1,9 @@
 <template>
-  <div class="h-screen flex flex-col bg-warm-50 text-warm-700 overflow-hidden">
+  <div class="h-screen flex flex-col bg-surface-50 dark:bg-surface-dark-50 text-zinc-700 dark:text-zinc-200 overflow-hidden">
     <Toolbar @logout="$emit('logout')" />
     <div class="flex flex-1 overflow-hidden min-h-0">
       <Sidebar />
-      <component :is="activeView" class="flex-1 min-w-0" />
+      <component :is="activeView" :key="currentView" class="flex-1 min-w-0" />
       <AiPanel />
     </div>
   </div>

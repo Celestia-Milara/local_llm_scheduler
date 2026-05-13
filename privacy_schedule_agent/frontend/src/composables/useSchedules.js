@@ -1,4 +1,4 @@
-import { ref, readonly } from 'vue'
+import { ref, readonly, computed } from 'vue'
 import axios from 'axios'
 import { getMonthRange, getMonthMatrix, toDateKey, expandRecurrence } from '../utils/calendar.js'
 
@@ -7,6 +7,7 @@ const selectedDate = ref(toDateKey(new Date()))
 const currentMonth = ref(new Date())
 const monthMatrix = ref([])
 const loading = ref(false)
+const activeCategory = ref('')
 let initialized = false
 
 export function useSchedules() {
@@ -27,6 +28,22 @@ export function useSchedules() {
       const end = e.end_time.slice(0, 10)
       return dateKey >= start && dateKey <= end
     })
+  }
+
+  function getEventDotColor(dateKey) {
+    const cats = new Set()
+    for (const e of monthEvents.value) {
+      const start = e.start_time.slice(0, 10)
+      const end = e.end_time.slice(0, 10)
+      if (dateKey >= start && dateKey <= end && e.category) {
+        cats.add(e.category)
+      }
+    }
+    if (cats.has('工作')) return 'bg-cat-work-400'
+    if (cats.has('学习')) return 'bg-cat-study-400'
+    if (cats.has('生活')) return 'bg-cat-life-400'
+    if (cats.size > 0) return 'bg-primary-400'
+    return ''
   }
 
   async function fetchMonth(userId = 1) {
@@ -104,13 +121,31 @@ export function useSchedules() {
     fetchMonth()
   }
 
+  const filteredEvents = computed(() => {
+    if (!activeCategory.value) return monthEvents.value
+    return monthEvents.value.filter(e => e.category === activeCategory.value)
+  })
+
+  const categoryCounts = computed(() => {
+    const counts = { '': monthEvents.value.length }
+    for (const e of monthEvents.value) {
+      const cat = e.category || ''
+      counts[cat] = (counts[cat] || 0) + 1
+    }
+    return counts
+  })
+
   return {
     monthEvents: readonly(monthEvents),
+    filteredEvents,
+    activeCategory,
+    categoryCounts,
     selectedDate,
     currentMonth,
     monthMatrix: readonly(monthMatrix),
     getMonthEvents,
     hasEvents,
+    getEventDotColor,
     loading,
     fetchMonth,
     createSchedule,

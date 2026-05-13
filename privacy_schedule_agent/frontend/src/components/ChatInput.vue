@@ -1,11 +1,11 @@
 <template>
-  <div class="border-t border-warm-200/60">
+  <div class="border-t border-zinc-200/60 dark:border-zinc-700/60">
     <!-- 快捷操作按钮 -->
     <div class="flex gap-1.5 px-4 pt-3 pb-1.5 overflow-x-auto">
       <button v-for="action in quickActions" :key="action.label"
         @click="quickSend(action.prompt)"
         :disabled="loading"
-        class="flex items-center gap-1 shrink-0 px-2.5 py-1.5 rounded-lg text-xs text-warm-500 bg-warm-100/80 border border-warm-200/40 hover:bg-copper-500/10 hover:text-copper-600 hover:border-copper-300/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+        class="flex items-center gap-1 shrink-0 px-2.5 py-1.5 rounded-lg text-xs text-zinc-500 dark:text-zinc-400 bg-surface-100/80 dark:bg-zinc-800/80 border border-zinc-200/40 dark:border-zinc-700/40 hover:bg-primary-500/10 hover:text-primary-600 hover:border-primary-300/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
         <!-- 图标 -->
         <svg v-if="action.icon === 'add'" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -30,9 +30,9 @@
       <div class="flex gap-2">
         <input v-model="text" @keyup.enter="send"
           placeholder="输入指令，例如：明天下午2点在图书馆开会..."
-          class="flex-1 bg-warm-100 border border-warm-200/60 rounded-xl px-4 py-2 text-sm text-warm-700 placeholder-warm-400 focus:outline-none focus:ring-1 focus:ring-copper-400/40 focus:border-copper-400/40 transition-all">
+          class="flex-1 bg-surface-100 dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 rounded-xl px-4 py-2 text-sm text-zinc-700 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-primary-400/40 focus:border-primary-400/40 transition-all">
         <button @click="send" :disabled="loading || !text.trim()"
-          class="bg-copper-500 hover:bg-copper-400 active:bg-copper-600 disabled:opacity-40 disabled:cursor-not-allowed px-3.5 py-2 rounded-xl text-sm font-medium text-white transition-all">
+          class="bg-primary-500 hover:bg-primary-400 active:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed px-3.5 py-2 rounded-xl text-sm font-medium text-white transition-all">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
           </svg>

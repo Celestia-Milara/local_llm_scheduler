@@ -3,60 +3,60 @@
     <!-- Header -->
     <div class="flex items-center gap-3 px-5 pt-5 pb-3 shrink-0">
       <button @click="goToday"
-        class="bg-warm-100 hover:bg-warm-200 px-3 py-1 rounded-lg text-xs font-medium text-warm-600 transition-colors">
+        class="bg-surface-100 dark:bg-zinc-800 hover:bg-surface-200 dark:hover:bg-zinc-700 px-3 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 transition-colors">
         今天
       </button>
       <div class="flex items-center gap-2">
-        <button @click="prevDay" class="p-1 text-warm-400 hover:text-warm-600 transition-colors rounded-lg hover:bg-warm-100">
+        <button @click="prevDay" class="p-1 text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors rounded-lg hover:bg-surface-100 dark:hover:bg-zinc-800">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </button>
-        <h2 class="font-display text-lg text-warm-800 w-48 text-center">{{ formattedDate }}</h2>
-        <button @click="nextDay" class="p-1 text-warm-400 hover:text-warm-600 transition-colors rounded-lg hover:bg-warm-100">
+        <h2 class="font-display text-lg font-semibold text-zinc-800 dark:text-zinc-200 w-48 text-center">{{ formattedDate }}</h2>
+        <button @click="nextDay" class="p-1 text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors rounded-lg hover:bg-surface-100 dark:hover:bg-zinc-800">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </button>
       </div>
-      <div class="text-xs text-warm-400 ml-2">{{ dayOfWeek }}</div>
+      <div class="text-xs text-zinc-400 dark:text-zinc-500 ml-2">{{ dayOfWeek }}</div>
     </div>
 
     <!-- Time grid -->
     <div ref="scrollRef" class="flex-1 overflow-y-auto min-h-0 px-5 pb-5">
-      <div class="relative rounded-xl border border-warm-200/60 bg-white min-h-full">
+      <div class="relative rounded-xl border border-zinc-200/60 dark:border-zinc-700/60 bg-white dark:bg-zinc-900 min-h-full">
         <div class="relative" style="height: 1440px">
           <!-- Hour lines -->
           <div v-for="h in 24" :key="h"
-            class="absolute left-14 right-0 border-t border-warm-200/50"
+            class="absolute left-14 right-0 border-t border-zinc-200/50 dark:border-zinc-700/50"
             :style="{ top: h * 60 + 'px' }">
-            <span class="absolute -left-14 -top-2.5 w-12 text-right pr-3 text-xs text-warm-400 font-medium select-none">
+            <span class="hidden sm:block absolute -left-14 -top-2.5 w-12 text-right pr-3 text-[11px] text-zinc-400 dark:text-zinc-500 font-semibold select-none">
               {{ String(h).padStart(2, '0') }}:00
             </span>
           </div>
 
           <!-- Half-hour markers -->
           <div v-for="h in 24" :key="'m-' + h"
-            class="absolute left-14 right-0 border-t border-warm-100"
+            class="absolute left-14 right-0 border-t border-zinc-100 dark:border-zinc-800/80"
             :style="{ top: h * 60 + 30 + 'px' }"></div>
 
           <!-- Drop target indicator during drag -->
           <div v-if="dragActive"
-            class="absolute left-14 right-0 z-20 pointer-events-none border-t-2 border-dashed border-copper-400/50"
+            class="absolute left-14 right-0 z-20 pointer-events-none border-t-2 border-dashed border-primary-400/50"
             :style="{ top: dragSnappedTop + 'px' }">
-            <span class="absolute -left-20 -top-3 w-16 text-right pr-2 text-[10px] font-mono font-medium text-copper-400">
+            <span class="absolute -left-20 -top-3 w-16 text-right pr-2 text-[10px] font-mono font-medium text-primary-400">
               {{ dragTargetTime }}
             </span>
           </div>
 
           <!-- Events -->
           <div v-for="event in dayEvents" :key="event.id"
-            class="absolute left-16 right-2 rounded-lg px-2.5 py-1 text-xs overflow-hidden border-l-2 z-10 select-none"
+            class="absolute left-16 right-2 rounded-lg px-2.5 py-1 text-xs overflow-hidden border-l-2 z-10 select-none transition-all duration-200 hover:shadow-md hover:z-20 hover:scale-[1.01]"
             :class="[
-              eventClass(event),
-              event.status === 'conflicted' ? 'border-copper-400/60' : '',
+              getEventClass(event),
+              event.status === 'conflicted' ? 'border-danger-400/60' : '',
               dragEventId === event.id
-                ? 'z-30 shadow-xl ring-2 ring-copper-400/40 opacity-90 cursor-grabbing'
+                ? 'z-30 shadow-xl ring-2 ring-primary-400/40 opacity-90 cursor-grabbing'
                 : 'cursor-grab hover:shadow-lg hover:shadow-black/20'
             ]"
             :style="eventStyle(event)"
@@ -70,7 +70,7 @@
           <!-- Ghost at original position during drag -->
           <div v-if="dragActive"
             class="absolute left-16 right-2 rounded-lg px-2.5 py-1 text-xs overflow-hidden border-2 border-dashed z-0 pointer-events-none opacity-20"
-            :class="dragEvent.status === 'conflicted' ? 'border-copper-400/30 bg-copper-400/10' : 'border-moss-400/30 bg-moss-400/10'"
+            :class="dragEvent.status === 'conflicted' ? 'border-danger-400/30 bg-danger-400/10' : 'border-moss-400/30 bg-moss-400/10'"
             :style="{ top: getEventTop(dragEvent) + 'px', height: Math.max(getEventHeight(dragEvent), 20) + 'px' }">
             <div class="font-medium truncate">{{ dragEvent.title }}</div>
           </div>
@@ -78,18 +78,22 @@
           <!-- Now indicator with pulse -->
           <div v-if="isToday" class="absolute left-14 right-0 z-20 pointer-events-none animate-pulse-subtle" :style="{ top: nowPos + 'px' }">
             <div class="flex items-center">
-              <div class="w-2 h-2 rounded-full bg-copper-400 shadow shadow-copper-400"></div>
-              <div class="flex-1 h-px bg-copper-400/60"></div>
+              <div class="w-2 h-2 rounded-full bg-primary-400 shadow shadow-primary-400"></div>
+              <div class="flex-1 h-px bg-primary-400/60"></div>
             </div>
           </div>
         </div>
 
         <!-- Empty / loading states -->
         <div v-if="loading" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span class="text-warm-400 text-sm">加载中...</span>
+          <span class="text-zinc-400 dark:text-zinc-500 text-sm">加载中...</span>
         </div>
-        <div v-else-if="dayEvents.length === 0" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span class="text-warm-400 text-sm">当天暂无日程</span>
+        <div v-else-if="dayEvents.length === 0" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-3">
+          <svg class="w-12 h-12 text-zinc-200 dark:text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          <p class="text-zinc-400 dark:text-zinc-500 text-sm">当天暂无日程</p>
+          <p class="text-zinc-300 dark:text-zinc-600 text-xs">点击左侧日历创建新日程</p>
         </div>
       </div>
     </div>
@@ -100,8 +104,9 @@
 import { computed, ref, reactive, watch, nextTick, onUnmounted } from 'vue'
 import { useSchedules } from '../composables/useSchedules.js'
 import { toDateKey, parseTime, formatEventTime, pad2 } from '../utils/calendar.js'
+import { eventClass as getEventClass } from '../utils/eventStyles.js'
 
-const { monthEvents, selectedDate, loading } = useSchedules()
+const { filteredEvents, selectedDate, loading } = useSchedules()
 const { updateSchedule } = useSchedules()
 const scrollRef = ref(null)
 
@@ -208,7 +213,7 @@ const nowPos = computed(() => {
 })
 
 const dayEvents = computed(() =>
-  (monthEvents.value || []).filter(e => e.start_time.startsWith(selectedDate.value))
+  (filteredEvents.value || []).filter(e => e.start_time.startsWith(selectedDate.value))
 )
 
 function getEventTop(event) {
@@ -217,15 +222,6 @@ function getEventTop(event) {
 
 function getEventHeight(event) {
   return ((parseTime(event.end_time) - parseTime(event.start_time)) / 60) * 60
-}
-
-function eventClass(event) {
-  if (event.status === 'conflicted') return 'bg-copper-400/10 text-copper-600 border-copper-400/40'
-  const cat = event.category
-  if (cat === '工作') return 'bg-gold-400/10 text-gold-600 border-gold-400/30'
-  if (cat === '学习') return 'bg-warm-400/10 text-warm-600 border-warm-400/30'
-  if (cat === '生活') return 'bg-copper-400/10 text-copper-600 border-copper-400/30'
-  return 'bg-moss-400/10 text-moss-600 border-moss-400/30'
 }
 
 function eventStyle(event) {
