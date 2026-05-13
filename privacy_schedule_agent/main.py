@@ -661,6 +661,70 @@ async def statistics_summary(req: StatsQuery):
         }
 
 
+# ── 分类端点（固定配置） ─────────────────────────────────
+CATEGORIES_CONFIG = [
+    {"key": "", "label": "全部", "color": "#818cf8"},
+    {"key": "工作", "label": "工作", "color": "#fbbf24"},
+    {"key": "学习", "label": "学习", "color": "#60a5fa"},
+    {"key": "生活", "label": "生活", "color": "#f472b6"},
+]
+
+
+@app.get("/api/categories")
+async def get_categories(request: Request):
+    # cloud 模式：显式校验 JWT（中间件当前放行过宽，不能依赖它）
+    if os.getenv("DEPLOY_MODE", "local") == "cloud":
+        await get_user_id_from_request(request)
+
+    return {"categories": CATEGORIES_CONFIG}
+
+
+@app.get("/schedules/categories/stats")
+async def get_schedule_category_stats(
+    request: Request,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    user_id: Optional[int] = 1,
+):
+    # FastAPI 默认缺参会 422，但本接口合同要求缺参返回 400
+    if not start or not end:
+        raise HTTPException(status_code=400, detail="缺少参数 start 或 end")
+
+    if os.getenv("DEPLOY_MODE", "local") == "cloud":
+        effective_user_id = await get_user_id_from_request(request)
+    else:
+        effective_user_id = user_id or 1
+
+    try:
+        dt_start = datetime.strptime(start, "%Y-%m-%d")
+        dt_end = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="日期格式应为 YYYY-MM-DD")
+
+    async with AsyncSessionLocal() as session:
+        stmt = (
+            select(Schedule.category)
+            .where(Schedule.user_id == effective_user_id)
+            .where(Schedule.is_archived == 0)
+            .where(Schedule.start_time >= dt_start)
+            .where(Schedule.start_time <= dt_end)
+        )
+        result = await session.execute(stmt)
+        categories = [row[0] for row in result.all()]
+
+    cat_counter = Counter(categories)
+    total = len(categories)
+
+    return {
+        "counts": {
+            "": total,
+            "工作": cat_counter.get("工作", 0),
+            "学习": cat_counter.get("学习", 0),
+            "生活": cat_counter.get("生活", 0),
+        }
+    }
+
+
 # ── 认证端点 ──────────────────────────────────────────────
 @app.post("/api/auth/register")
 async def auth_register(req: AuthRegisterRequest):
