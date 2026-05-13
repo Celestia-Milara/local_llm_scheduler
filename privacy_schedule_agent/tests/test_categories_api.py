@@ -1,10 +1,12 @@
 import asyncio
 import importlib
+import gc
 import os
 import sqlite3
 import sys
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -18,11 +20,17 @@ if str(PROJECT_DIR) not in sys.path:
 class CategoriesApiLocalTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._old_cwd = Path.cwd()
+        cls._env_backup = {
+            "DATABASE_URL": os.environ.get("DATABASE_URL"),
+            "DEPLOY_MODE": os.environ.get("DEPLOY_MODE"),
+        }
         cls.tmp_dir = tempfile.TemporaryDirectory()
         cls.db_file = Path(cls.tmp_dir.name) / "test_categories.db"
         os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{cls.db_file}"
         os.environ["DEPLOY_MODE"] = "local"
 
+        os.chdir(PROJECT_DIR)
         for module_name in list(sys.modules.keys()):
             if module_name == "main" or module_name.startswith("app."):
                 del sys.modules[module_name]
@@ -52,14 +60,32 @@ class CategoriesApiLocalTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.client.__exit__(None, None, None)
-        from app.db.database import engine
-
-        asyncio.run(engine.dispose())
         try:
-            cls.tmp_dir.cleanup()
-        except PermissionError:
-            pass
+            cls.client.__exit__(None, None, None)
+            from app.db.database import engine
+
+            asyncio.run(engine.dispose())
+        finally:
+            try:
+                cls.tmp_dir.cleanup()
+            except PermissionError as exc:
+                warnings.warn(
+                    f"Temporary directory cleanup failed for {cls.tmp_dir.name}: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                gc.collect()
+                try:
+                    cls.tmp_dir.cleanup()
+                except PermissionError:
+                    raise
+            finally:
+                for key, value in cls._env_backup.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+                os.chdir(cls._old_cwd)
 
     def test_get_categories_returns_exact_list(self):
         resp = self.client.get("/api/categories")
